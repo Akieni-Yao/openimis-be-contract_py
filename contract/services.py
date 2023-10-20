@@ -35,7 +35,7 @@ from core.signals import *
 
 import logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger("openimis." + __file__)
 
 
 class ContractUpdateError(Exception):
@@ -283,6 +283,7 @@ class Contract(object):
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
+            logger.exception("Exception in approve contract")
             return _output_exception(model_name="Contract", method="approve", exception=exc)
 
     @check_authentication
@@ -425,7 +426,12 @@ class Contract(object):
             contract_to_delete = ContractModel.objects.filter(id=contract["id"]).first()
             # block deleting contract not in Updateable or Approvable state
             if self.__check_rights_by_status(contract_to_delete.state) == "cannot_update":
-                raise ContractUpdateError("Contract in that state cannot be deleted")
+                return {
+                    "success": False,
+                    "message": f"Contract {contract_to_delete.code} cannot be deleted!",
+                    "detail": f"{contract_to_delete.code} cannot be deleted because of state {contract_to_delete.state}",
+                    "data": "",
+                }
             contract_to_delete.delete(username=self.user.username)
             return {
                 "success": True,
@@ -433,6 +439,7 @@ class Contract(object):
                 "detail": "",
             }
         except Exception as exc:
+            logger.exception("Exception in delete contract")
             return _output_exception(model_name="Contract", method="delete", exception=exc)
 
     @check_authentication
@@ -663,7 +670,7 @@ class ContractContributionPlanDetails(object):
         return policy_output
 
     def create_contract_details_policies(self, insuree, product, last_date_covered, date_valid_to):
-        # create policy for insuree familly
+        # create policy for insuree family
         # TODO Policy with status - new open=32 in policy-be_py module
         policy_output = []
         while last_date_covered < date_valid_to:
@@ -672,7 +679,7 @@ class ContractContributionPlanDetails(object):
                 **{
                     "family": insuree.family,
                     "product": product,
-                    "status": Policy.STATUS_ACTIVE,
+                    "status": Policy.STATUS_READY,
                     "stage": Policy.STAGE_NEW,
                     "enroll_date": last_date_covered,
                     "start_date": last_date_covered,
@@ -767,7 +774,7 @@ class ContractContributionPlanDetails(object):
         length = cp.get_contribution_length()
         ccpd.date_valid_from = date_valid_from
         ccpd.date_valid_to = date_valid_from + datetimedelta(months=length)
-        # TODO: calculate the number of CCPD to create in order to cover the contract lenght
+        # TODO: calculate the number of CCPD to create in order to cover the contract length
         ccpd_results = self.create_ccpd(ccpd, insuree_id)
         ccpd_record = model_to_dict(ccpd)
         ccpd_record["calculated_amount"] = calculated_amount
@@ -785,7 +792,7 @@ class ContractContributionPlanDetails(object):
                 length_ccpd = float((ccpd_result.date_valid_to.year - ccpd_result.date_valid_from.year) * 12 \
                                     + (ccpd_result.date_valid_to.month - ccpd_result.date_valid_from.month))
                 periodicity = float(ccpd_result.contribution_plan.periodicity)
-                # time part of splited as a fraction to count contribution value for that splited period properly
+                # time part of split as a fraction to count contribution value for that split period properly
                 part_time_period = length_ccpd / periodicity
                 # rc - result calculation
                 rc = run_calculation_rules(ccpd, "update", self.user)
@@ -868,6 +875,7 @@ class PaymentService(object):
             dict_representation["payment_details"] = payment_list
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
+            logger.exception("Payment.createPayment failed")
             return _output_exception(
                 model_name="Payment",
                 method="createPayment",

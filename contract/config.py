@@ -87,7 +87,7 @@ CONTRACT_STATE = {
             "value": "11",
             "label":
                 {
-                    "fr": "révision demandé",
+                    "fr": "révision demandée",
                     "en": "counter"
                 }
         }]
@@ -111,8 +111,8 @@ def get_message_approved_contract(code, name, contact_name, due_amount, payment_
                  F"""
                  Monsieur, Madame {contact_name}
                  
-                 le contract {code} - {name} à été apprové.
-                 Veuillez faire un paiement de < CONTRACT - DUEAMOUNT > avec la référence {payment_reference}.
+                 le contract {code} - {name} à été approuvé.
+                 Veuillez faire un paiement de {due_amount} avec la référence {payment_reference}.
                  
                  Meilleurs Salutations 
                  """
@@ -128,7 +128,7 @@ def get_message_counter_contract(code, name, contact_name, language='en'):
                  F"""
                  Dear {contact_name} 
 
-                 The contract {code} - {name} was counter.
+                 The contract {code} - {name} was countered.
                  Please proceed recheck the information and correct the issues, in case of questions please check contact us. 
 
                  Best regards, 
@@ -139,9 +139,9 @@ def get_message_counter_contract(code, name, contact_name, language='en'):
                  Monsieur, Madame {contact_name}
 
                  le contract {code} - {name} à été contré.
-                 Veuillez verifier les information saisie, en cas de question veuillez nous contacter.
+                 Veuillez verifier les informations saisies, en cas de question veuillez nous contacter.
 
-                 Meilleurs Salutations 
+                 Meilleures Salutations 
                  """
              }
     }

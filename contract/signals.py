@@ -1,3 +1,4 @@
+from policy.models import Policy
 from .config import get_message_approved_contract
 from .models import Contract, ContractContributionPlanDetails
 from core.signals import Signal
@@ -50,10 +51,10 @@ def on_contract_approve_signal(sender, **kwargs):
     from core import datetime
     now = datetime.datetime.now()
     contract_to_approve.date_approved = now
-    contract_to_approve.state = 5
+    contract_to_approve.state = Contract.STATE_EXECUTABLE
     approved_contract = __save_or_update_contract(contract=contract_to_approve, user=user)
     email_contact_name = contract_to_approve.policy_holder.contact_name["contactName"] \
-        if "contactName" in contract_to_approve.policy_holder.contact_name \
+        if contract_to_approve.policy_holder.contact_name and "contactName" in contract_to_approve.policy_holder.contact_name \
         else contract_to_approve.policy_holder.contact_name
     email = __send_email_notify_payment(
         code=contract_to_approve.code,
@@ -169,12 +170,12 @@ def activate_contracted_policies(sender, instance, **kwargs):
             ccpd_number = ContractContributionPlanDetails.objects.prefetch_related('contract_details__contract').filter(
                 contract_details__contract__in=list(contract_list)
             ).count()
-            # 1- check if the contract have payment attached to each contributions
-            # (nbr CCPD of all contract in step 0= Paymentdetails in Steps 0)
+            # 1- check if the contract have payment attached to each contribution
+            # (nbr CCPD of all contract in step 0= PaymentDetails in Steps 0)
             if ccpd_number == len(list(payment_detail)):
                 for contract in contract_list:
                     if contract.state == Contract.STATE_EXECUTABLE:
-                        # get the ccpd related to the currenttly processing contract
+                        # get the ccpd related to the currently processing contract
                         ccpd_list = list(
                             ContractContributionPlanDetails.objects.prefetch_related(
                                 'contract_details__contract').filter(
@@ -182,7 +183,7 @@ def activate_contracted_policies(sender, instance, **kwargs):
                             )
                         )
                         from core import datetime, datetimedelta
-                        # TODO support Splitted payment and check that
+                        # TODO support Split payment and check that
                         #  the payment match the value of all contributions
                         for ccpd in ccpd_list:
                             insuree = ccpd.contract_details.insuree
@@ -199,6 +200,8 @@ def activate_contracted_policies(sender, instance, **kwargs):
                                     "audit_user_id": -1,
                                 }
                             )
+                            ccpd.policy.status = Policy.STATUS_ACTIVE
+                            ccpd.policy.save()
                         contract.state = Contract.STATE_EFFECTIVE
                         __save_or_update_contract(contract, contract.user_updated)
 
