@@ -1,7 +1,8 @@
+from core.service_signals import ServiceSignalBindType
 from policy.models import Policy
 from .config import get_message_approved_contract
 from .models import Contract, ContractContributionPlanDetails
-from core.signals import Signal
+from core.signals import Signal, register_service_signal, bind_service_signal
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.conf import settings
@@ -16,6 +17,9 @@ from policy.signals import signal_check_formal_sector_for_policy
 from policyholder.apps import PolicyholderConfig
 from policyholder.models import PolicyHolderUser
 from insuree.models import InsureePolicy
+
+import logging
+logger = logging.getLogger("openimis." + __name__)
 
 _contract_signal_params = ["contract", "user"]
 _contract_approve_signal_params = ["contract", "user", "contract_details_list", "service_object", "payment_service",
@@ -182,28 +186,58 @@ def activate_contracted_policies(sender, instance, **kwargs):
                                 contract_details__contract=contract
                             )
                         )
-                        from core import datetime, datetimedelta
                         # TODO support Split payment and check that
                         #  the payment match the value of all contributions
+
+                        # Activate all employees. If the contact has to be activated but employee activation requires
+                        # additional rules, intercept the signal on activate_contract_contribution_plan_detail
                         for ccpd in ccpd_list:
-                            insuree = ccpd.contract_details.insuree
-                            pi = InsureePolicy.objects.create(
-                                **{
-                                    "insuree": insuree,
-                                    "policy": ccpd.policy,
-                                    "enrollment_date": ccpd.date_valid_from,
-                                    "start_date": ccpd.date_valid_from,
-                                    "effective_date": ccpd.date_valid_from,
-                                    "expiry_date": ccpd.date_valid_to + datetimedelta(
-                                        ccpd.contribution_plan.get_contribution_length()
-                                    ),
-                                    "audit_user_id": -1,
-                                }
-                            )
-                            ccpd.policy.status = Policy.STATUS_ACTIVE
-                            ccpd.policy.save()
+                            try:
+                                result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
+                                if not result:
+                                    logger.info("Contract contribution plan detail ccpd.id not activated")
+                            except Exception as e:
+                                logger.error(f"Contract contribution plan detail ccpd not activated {e}")
                         contract.state = Contract.STATE_EFFECTIVE
                         __save_or_update_contract(contract, contract.user_updated)
+
+
+class ContractActivationService:
+
+    @classmethod
+    @register_service_signal('activate_contract_contribution_plan_detail')
+    def activate_contract_contribution_plan_detail(cls, ccpd):
+        from core import datetime, datetimedelta
+        insuree = ccpd.contract_details.insuree
+        pi = InsureePolicy.objects.create(
+            **{
+                "insuree": insuree,
+                "policy": ccpd.policy,
+                "enrollment_date": ccpd.date_valid_from,
+                "start_date": ccpd.date_valid_from,
+                "effective_date": ccpd.date_valid_from,
+                "expiry_date": ccpd.date_valid_to + datetimedelta(
+                    ccpd.contribution_plan.get_contribution_length()
+                ),
+                "audit_user_id": -1,
+            }
+        )
+        ccpd.policy.status = Policy.STATUS_ACTIVE
+        ccpd.policy.save()
+        return pi
+
+
+def example_only_activate_employees_named_john(data=None, **kwargs):
+    ccpd = data[0][0]
+    if "John" in ccpd.contract_details.insuree.other_names:
+        raise Exception("John is not allowed to be insured")
+
+
+bind_service_signal(
+    'activate_contract_contribution_plan_detail',
+    example_only_activate_employees_named_john,
+    bind_type=ServiceSignalBindType.BEFORE
+)
 
 
 def __save_json_external(user_id, datetime, message):
