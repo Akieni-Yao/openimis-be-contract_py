@@ -3,6 +3,7 @@ import json
 from copy import copy
 
 from django.core.exceptions import ValidationError
+from django.db import connection
 
 from .config import get_message_counter_contract
 
@@ -38,6 +39,15 @@ import logging
 logger = logging.getLogger("openimis." + __file__)
 
 
+def generate_contract_code():
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT nextval('public.contract_code_seq')")
+        sequence_value = cursor.fetchone()[0]
+
+    new_code = f"CONT{sequence_value:09}"
+    return new_code
+
+
 class ContractUpdateError(Exception):
 
     def __init__(self, msg=None):
@@ -70,9 +80,10 @@ class Contract(object):
     @check_authentication
     def create(self, contract):
         try:
-            incoming_code = contract.get('code')
-            if check_unique_code(incoming_code):
-                raise ValidationError(("Contract code %s already exists" % incoming_code))
+            incoming_code = generate_contract_code()  # Generate a new unique code
+            contract['code'] = incoming_code  # Set the generated code into the contract
+            # if check_unique_code(incoming_code):
+            #     raise ValidationError(("Contract code %s already exists" % incoming_code))
             if not self.user.has_perms(ContractConfig.gql_mutation_create_contract_perms):
                 raise PermissionError("Unauthorized")
             c = ContractModel(**contract)
