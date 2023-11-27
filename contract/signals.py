@@ -15,8 +15,8 @@ from payment.models import Payment, PaymentDetail
 from payment.signals import signal_before_payment_query
 from policy.signals import signal_check_formal_sector_for_policy
 from policyholder.apps import PolicyholderConfig
-from policyholder.models import PolicyHolderUser
-from insuree.models import InsureePolicy
+from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
+from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
 logger = logging.getLogger("openimis." + __name__)
@@ -156,6 +156,7 @@ signal_check_formal_sector_for_policy.connect(formal_sector_policies)
 
 @receiver(post_save, sender=Payment, dispatch_uid="payment_signal_paid")
 def activate_contracted_policies(sender, instance, **kwargs):
+    logger.info("====  activate_contracted_policies  ====  start  ====")
     received_amount = instance.received_amount if instance.received_amount else 0
     # check if payment is related to the contract
     payment_detail = PaymentDetail.objects.filter(
@@ -174,8 +175,13 @@ def activate_contracted_policies(sender, instance, **kwargs):
             ccpd_number = ContractContributionPlanDetails.objects.prefetch_related('contract_details__contract').filter(
                 contract_details__contract__in=list(contract_list)
             ).count()
-            # 1- check if the contract have payment attached to each contribution
-            # (nbr CCPD of all contract in step 0= PaymentDetails in Steps 0)
+            contract_plan_periodicity = ContractContributionPlanDetails.objects.prefetch_related('contract_details__contract').filter(
+                contract_details__contract__in=list(contract_list)
+            ).first()
+            periodicity = contract_plan_periodicity.contribution_plan.periodicity if contract_plan_periodicity.contribution_plan else None
+            logger.info(f"====  activate_contracted_policies  ====  periodicity  ====  {periodicity}")
+            logger.info(f"====  activate_contracted_policies  ====  contribution_list_id  ====  {contribution_list_id}")
+
             if ccpd_number == len(list(payment_detail)):
                 for contract in contract_list:
                     if contract.state == Contract.STATE_EXECUTABLE:
@@ -193,13 +199,51 @@ def activate_contracted_policies(sender, instance, **kwargs):
                         # additional rules, intercept the signal on activate_contract_contribution_plan_detail
                         for ccpd in ccpd_list:
                             try:
-                                result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
-                                if not result:
-                                    logger.info("Contract contribution plan detail ccpd.id not activated")
+                                logger.info(f"====  activate_contracted_policies  ====  ccpd  ====  {ccpd}")
+                                
+                                assign_policy = False
+                                insuree_pd = PaymentDetail.objects.filter(insurance_number=ccpd.contract_details.insuree.chf_id,
+                                        premium__contract_contribution_plan_details__contract_details__contract__policy_holder=ccpd.contract_details.contract.policy_holder,
+                                        premium__contract_contribution_plan_details__isnull=False).all()
+
+                                if periodicity == 1 and len(insuree_pd) >= 3:
+                                    assign_policy = True
+                                elif periodicity == 3 and len(insuree_pd) >= 1:
+                                    assign_policy = True
+
+                                if assign_policy:
+                                    if ccpd.contract_details.insuree.status == "APPROVED" and ccpd.contract_details.insuree.document_status and ccpd.contract_details.insuree.biometrics_is_master:
+                                        PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_rights_enable_for_insuree=True, is_payment_done_by_policy_holder=True)
+                                        result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
+                                        logger.info(f"====  activate_contracted_policies  ==== activate_contract_contribution_plan_detail result  ====  {result}")
+                                        if not result:
+                                            logger.info("Contract contribution plan detail ccpd.id not activated")
+                                        else:
+                                            Insuree.objects.filter(id=ccpd.contract_details.insuree.id).update(status="ACTIVE")
+                                            insuree = Insuree.objects.filter(id=ccpd.contract_details.insuree.id).first()
+                                            logger.info(f"====  activate_contracted_policies  ====  insuree.status  ====  {insuree.status}")
+                                            family_members = Insuree.objects.filter(family_id=insuree.family.id, legacy_id=None).all()
+                                            all_insuree = True
+                                            for member in family_members:
+                                                if member.status != insuree.status:
+                                                    all_insuree = False
+                                                    break
+                                            if all_insuree:
+                                                Family.objects.filter(id=insuree.family.id).update(status=insuree.status)
+                                                logger.info("====  activate_contracted_policies  ====  family.status  ====  ACTIVE")
+                                    else:
+                                        PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_payment_done_by_policy_holder=True)
+                                        logger.info("====  activate_contracted_policies  ====  PolicyHolderInsuree  ====  is_payment_done_by_policy_holder=True")
+                                    # result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
+                                    # if not result:
+                                    #     logger.info("Contract contribution plan detail ccpd.id not activated")
+                                else:
+                                    logger.info(f"Policy can not be assigned for {ccpd}")
                             except Exception as e:
                                 logger.error(f"Contract contribution plan detail ccpd not activated {e}")
                         contract.state = Contract.STATE_EFFECTIVE
                         __save_or_update_contract(contract, contract.user_updated)
+    logger.info("====  activate_contracted_policies  ====  end  ====")
 
 
 class ContractActivationService:
@@ -207,6 +251,7 @@ class ContractActivationService:
     @classmethod
     @register_service_signal('activate_contract_contribution_plan_detail')
     def activate_contract_contribution_plan_detail(cls, ccpd):
+        logger.info("====  activate_contract_contribution_plan_detail  ====  start  ====")
         from core import datetime, datetimedelta
         insuree = ccpd.contract_details.insuree
         pi = InsureePolicy.objects.create(
@@ -224,20 +269,22 @@ class ContractActivationService:
         )
         ccpd.policy.status = Policy.STATUS_ACTIVE
         ccpd.policy.save()
+        logger.info(f"====  activate_contract_contribution_plan_detail  ====  InsureePolicy  ====  {pi}")
+        logger.info("====  activate_contract_contribution_plan_detail  ====  end  ====")
         return pi
 
 
-def example_only_activate_employees_named_john(data=None, **kwargs):
-    ccpd = data[0][0]
-    if "John" in ccpd.contract_details.insuree.other_names:
-        raise Exception("John is not allowed to be insured")
+# def example_only_activate_employees_named_john(data=None, **kwargs):
+#     ccpd = data[0][0]
+#     if "John" in ccpd.contract_details.insuree.other_names:
+#         raise Exception("John is not allowed to be insured")
 
 
-bind_service_signal(
-    'activate_contract_contribution_plan_detail',
-    example_only_activate_employees_named_john,
-    bind_type=ServiceSignalBindType.BEFORE
-)
+# bind_service_signal(
+#     'activate_contract_contribution_plan_detail',
+#     example_only_activate_employees_named_john,
+#     bind_type=ServiceSignalBindType.BEFORE
+# )
 
 
 def __save_json_external(user_id, datetime, message):
