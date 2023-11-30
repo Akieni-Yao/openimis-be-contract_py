@@ -225,6 +225,9 @@ def activate_contracted_policies(sender, instance, **kwargs):
                                             family_members = Insuree.objects.filter(family_id=insuree.family.id, legacy_id=None).all()
                                             all_insuree = True
                                             for member in family_members:
+                                                if member.status == 'APPROVED':
+                                                    Insuree.objects.filter(id=member.id).update(status="ACTIVE")
+                                            for member in family_members:
                                                 if member.status != insuree.status:
                                                     all_insuree = False
                                                     break
