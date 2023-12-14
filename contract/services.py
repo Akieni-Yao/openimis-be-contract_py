@@ -5,6 +5,7 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
+from payment.payment_utils import payment_code_generation
 from .config import get_message_counter_contract
 
 from django.db.models.query import Q
@@ -867,6 +868,14 @@ class PaymentService(object):
             from core import datetime
             now = datetime.datetime.now()
             p = update_or_create_payment(data=payment, user=self.user)
+            try:
+                if payment_details and len(payment_details) > 0:
+                    payment_code = payment_code_generation(payment_details[0]["premium"])
+                    p.payment_code = payment_code
+                    print(p.payment_code)
+                    p.save()
+            except Exception as e:
+                logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
             dict_representation['id'], dict_representation['uuid'] = (p.id, p.uuid)
             if payment_details:
@@ -892,6 +901,7 @@ class PaymentService(object):
                 method="createPayment",
                 exception=exc
             )
+
 
     @check_authentication
     def collect_payment_details(self, contract_contribution_plan_details):
