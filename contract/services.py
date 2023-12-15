@@ -218,7 +218,11 @@ class Contract(object):
             contract_contribution_plan_details = self.evaluate_contract_valuation(
                 contract_details_result=contract_details_list,
             )
-            contract_to_submit.amount_rectified = contract_contribution_plan_details["total_amount"]
+            ar_amount = contract_contribution_plan_details["total_amount"]
+            if ar_amount is not None and isinstance(ar_amount, (str)):
+                ar_amount = float(ar_amount)
+            rounded_total_amount = round(ar_amount, 2)
+            contract_to_submit.amount_rectified = rounded_total_amount
             # send signal
             contract_to_submit.state = ContractModel.STATE_NEGOTIABLE
             signal_contract.send(sender=ContractModel, contract=contract_to_submit, user=self.user)
