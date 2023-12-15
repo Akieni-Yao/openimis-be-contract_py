@@ -103,7 +103,10 @@ class Contract(object):
                 total_amount = self.evaluate_contract_valuation(
                     contract_details_result=result_ph_insuree,
                 )["total_amount"]
-                c.amount_notified = total_amount
+                if total_amount is not None and isinstance(total_amount, (str)):
+                    total_amount = float(total_amount)
+                rounded_total_amount = round(total_amount, 2)
+                c.amount_notified = rounded_total_amount
             historical_record = c.history.all().last()
             c.json_ext = _save_json_external(
                 user_id=str(historical_record.user_updated.id),
