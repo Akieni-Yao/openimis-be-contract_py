@@ -57,6 +57,8 @@ def on_contract_approve_signal(sender, **kwargs):
     now = datetime.datetime.now()
     contract_to_approve.date_approved = now
     contract_to_approve.state = Contract.STATE_EXECUTABLE
+    if isinstance(contract_to_approve.amount_due, str):
+        contract_to_approve.amount_due = float(contract_to_approve.amount_due)
     rounded_amount = round(contract_to_approve.amount_due, 2)
     approved_contract = __save_or_update_contract(contract=contract_to_approve, user=user)
     email_contact_name = contract_to_approve.policy_holder.contact_name["contactName"] \
