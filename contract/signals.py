@@ -200,52 +200,52 @@ def activate_contracted_policies(sender, instance, **kwargs):
                         for ccpd in ccpd_list:
                             try:
                                 logger.info(f"====  activate_contracted_policies  ====  ccpd  ====  {ccpd}")
-                                
-                                assign_policy = False
-                                insuree_pd = PaymentDetail.objects.filter(insurance_number=ccpd.contract_details.insuree.chf_id,
-                                        premium__contract_contribution_plan_details__contract_details__contract__policy_holder=ccpd.contract_details.contract.policy_holder,
-                                        premium__contract_contribution_plan_details__isnull=False).all()
+                                pass
+                                # assign_policy = False
+                                # insuree_pd = PaymentDetail.objects.filter(insurance_number=ccpd.contract_details.insuree.chf_id,
+                                #         premium__contract_contribution_plan_details__contract_details__contract__policy_holder=ccpd.contract_details.contract.policy_holder,
+                                #         premium__contract_contribution_plan_details__isnull=False).all()
 
-                                if periodicity == 1 and len(insuree_pd) >= 3:
-                                    assign_policy = True
-                                elif periodicity == 3 and len(insuree_pd) >= 1:
-                                    assign_policy = True
+                                # if periodicity == 1 and len(insuree_pd) >= 3:
+                                #     assign_policy = True
+                                # elif periodicity == 3 and len(insuree_pd) >= 1:
+                                #     assign_policy = True
 
-                                if assign_policy:
-                                    if ccpd.contract_details.insuree.status == "APPROVED" and ccpd.contract_details.insuree.document_status and ccpd.contract_details.insuree.biometrics_is_master:
-                                        PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_rights_enable_for_insuree=True, is_payment_done_by_policy_holder=True)
-                                        result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
-                                        logger.info(f"====  activate_contracted_policies  ==== activate_contract_contribution_plan_detail result  ====  {result}")
-                                        if not result:
-                                            logger.info("Contract contribution plan detail ccpd.id not activated")
-                                        else:
-                                            Insuree.objects.filter(id=ccpd.contract_details.insuree.id).update(status="ACTIVE")
-                                            insuree = Insuree.objects.filter(id=ccpd.contract_details.insuree.id).first()
-                                            logger.info(f"====  activate_contracted_policies  ====  insuree.status  ====  {insuree.status}")
-                                            family_members = Insuree.objects.filter(family_id=insuree.family.id, legacy_id=None).all()
-                                            all_insuree = True
-                                            for member in family_members:
-                                                if member.status == 'APPROVED':
-                                                    Insuree.objects.filter(id=member.id).update(status="ACTIVE")
-                                            for member in family_members:
-                                                if member.status != insuree.status:
-                                                    all_insuree = False
-                                                    break
-                                            if all_insuree:
-                                                Family.objects.filter(id=insuree.family.id).update(status=insuree.status)
-                                                logger.info("====  activate_contracted_policies  ====  family.status  ====  ACTIVE")
-                                    else:
-                                        PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_payment_done_by_policy_holder=True)
-                                        logger.info("====  activate_contracted_policies  ====  PolicyHolderInsuree  ====  is_payment_done_by_policy_holder=True")
-                                    # result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
-                                    # if not result:
-                                    #     logger.info("Contract contribution plan detail ccpd.id not activated")
-                                else:
-                                    logger.info(f"Policy can not be assigned for {ccpd}")
+                                # if assign_policy:
+                                #     if ccpd.contract_details.insuree.status == "APPROVED" and ccpd.contract_details.insuree.document_status and ccpd.contract_details.insuree.biometrics_is_master:
+                                #         PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_rights_enable_for_insuree=True, is_payment_done_by_policy_holder=True)
+                                #         result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
+                                #         logger.info(f"====  activate_contracted_policies  ==== activate_contract_contribution_plan_detail result  ====  {result}")
+                                #         if not result:
+                                #             logger.info("Contract contribution plan detail ccpd.id not activated")
+                                #         else:
+                                #             Insuree.objects.filter(id=ccpd.contract_details.insuree.id).update(status="ACTIVE")
+                                #             insuree = Insuree.objects.filter(id=ccpd.contract_details.insuree.id).first()
+                                #             logger.info(f"====  activate_contracted_policies  ====  insuree.status  ====  {insuree.status}")
+                                #             family_members = Insuree.objects.filter(family_id=insuree.family.id, legacy_id=None).all()
+                                #             all_insuree = True
+                                #             for member in family_members:
+                                #                 if member.status == 'APPROVED':
+                                #                     Insuree.objects.filter(id=member.id).update(status="ACTIVE")
+                                #             for member in family_members:
+                                #                 if member.status != insuree.status:
+                                #                     all_insuree = False
+                                #                     break
+                                #             if all_insuree:
+                                #                 Family.objects.filter(id=insuree.family.id).update(status=insuree.status)
+                                #                 logger.info("====  activate_contracted_policies  ====  family.status  ====  ACTIVE")
+                                #     else:
+                                #         PolicyHolderInsuree.objects.filter(policy_holder__uuid=ccpd.contract_details.contract.policy_holder.uuid, insuree_id=ccpd.contract_details.insuree.id).update(is_payment_done_by_policy_holder=True)
+                                #         logger.info("====  activate_contracted_policies  ====  PolicyHolderInsuree  ====  is_payment_done_by_policy_holder=True")
+                                # else:
+                                #     logger.info(f"Policy can not be assigned for {ccpd}")
+                                # # result = ContractActivationService.activate_contract_contribution_plan_detail(ccpd)
+                                # # if not result:
+                                # #     logger.info("Contract contribution plan detail ccpd.id not activated")
                             except Exception as e:
                                 logger.error(f"Contract contribution plan detail ccpd not activated {e}")
-                        contract.state = Contract.STATE_EFFECTIVE
-                        __save_or_update_contract(contract, contract.user_updated)
+                        # contract.state = Contract.STATE_EFFECTIVE
+                        # __save_or_update_contract(contract, contract.user_updated)
     logger.info("====  activate_contracted_policies  ====  end  ====")
 
 
