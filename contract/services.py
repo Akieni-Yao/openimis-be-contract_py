@@ -284,6 +284,11 @@ class Contract(object):
                 contract_to_approve.amendment,
                 contract_to_approve.date_valid_from,
             )
+            amount_due = contract_to_approve.amount_due
+            if amount_due is not None and isinstance(amount_due, (str)):
+                amount_due = float(amount_due)
+            rounded_total_amount = round(amount_due, 2)
+            contract_to_approve.amount_due = rounded_total_amount
             # send signal - approve contract
             ccpd_service = ContractContributionPlanDetails(user=self.user)
             payment_service = PaymentService(user=self.user)
