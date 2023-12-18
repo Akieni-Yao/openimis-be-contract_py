@@ -281,16 +281,6 @@ class Contract(object):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
             contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
-            amount_due = contract_to_approve.amount_due
-            print(f'======= amount due: {amount_due}=======')
-            if amount_due is not None:
-                if isinstance(amount_due, str):
-                    try:
-                        amount_due = float(amount_due)
-                    except ValueError:
-                        pass  # Keep the original value if it can't be converted to a number
-                rounded_total_amount = round(float(amount_due), 2)
-                contract_to_approve.amount_due = rounded_total_amount
             state_right = self.__check_rights_by_status(contract_to_approve.state)
             # check if we can submit
             if state_right != "approvable":
