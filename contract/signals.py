@@ -49,7 +49,12 @@ def on_contract_approve_signal(sender, **kwargs):
         contract_details_result=contract_details_list,
         save=True
     )
-    contract_to_approve.amount_due = contract_contribution_plan_details["total_amount"]
+    # contract_to_approve.amount_due = contract_contribution_plan_details["total_amount"]
+    amount_due = contract_contribution_plan_details["total_amount"]
+    if isinstance(amount_due, str):
+        amount_due = float(amount_due)
+    rounded_amount = round(amount_due, 2)
+    contract_to_approve.amount_due = rounded_amount
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
     result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details)
     # STATE_EXECUTABLE
@@ -57,9 +62,6 @@ def on_contract_approve_signal(sender, **kwargs):
     now = datetime.datetime.now()
     contract_to_approve.date_approved = now
     contract_to_approve.state = Contract.STATE_EXECUTABLE
-    if isinstance(contract_to_approve.amount_due, str):
-        contract_to_approve.amount_due = float(contract_to_approve.amount_due)
-    rounded_amount = round(contract_to_approve.amount_due, 2)
     approved_contract = __save_or_update_contract(contract=contract_to_approve, user=user)
     email_contact_name = contract_to_approve.policy_holder.contact_name["contactName"] \
         if contract_to_approve.policy_holder.contact_name and "contactName" in contract_to_approve.policy_holder.contact_name \
@@ -68,7 +70,7 @@ def on_contract_approve_signal(sender, **kwargs):
         code=contract_to_approve.code,
         name=contract_to_approve.policy_holder.trade_name,
         contact_name=email_contact_name,
-        amount_due=rounded_amount,
+        amount_due=contract_to_approve.amount_due,
         payment_reference=contract_to_approve.payment_reference,
         email=contract_to_approve.policy_holder.email,
         policy_holder_id=contract_to_approve.policy_holder_id,
