@@ -1,7 +1,11 @@
+from datetime import timedelta
+
 import graphene
 import graphene_django_optimizer as gql_optimizer
 
 from django.db.models import Q
+
+from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 from .services import check_unique_code
 from core.gql_queries import ValidationMessageGQLType
 from core.schema import signal_mutation_module_before_mutating, OrderedDjangoFilterConnectionField
@@ -54,6 +58,35 @@ class Query(graphene.ObjectType):
         contract_code=graphene.String(required=True),
         description="Check that the specified contract code is unique."
     )
+
+    validate_enddate_by_periodicity = graphene.Date(
+        start_date=graphene.Date(required=True),
+        policyholder_id=graphene.Int(required=True)
+    )
+
+    def resolve_validate_enddate_by_periodicity(self, info, start_date, policyholder_id):
+        try:
+            policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
+            if policy_holder:
+                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
+                                                                     is_deleted=False).first()
+                if ph_cpb:
+                    contribution_plan_bundle = ph_cpb.contribution_plan_bundle
+                    periodicity = contribution_plan_bundle.periodicity
+
+                    if periodicity is not None:
+                        # Calculate the end date based on start_date and periodicity (in months)
+                        end_date = start_date + timedelta(days=periodicity * 30)  # Assuming 30 days per month
+                        return end_date
+                    else:
+                        raise ValueError("Periodicity is not defined for this Contribution Plan Bundle")
+                else:
+                    raise ValueError("Contribution Plan Bundle not found for this Policy Holder")
+            else:
+                raise ValueError("Policy Holder not found")
+        except Exception as e:
+            # Handle exceptions here, you might want to log the error or return a specific error message
+            return None  # Returning None for simplicity, handle it as per your requirements
 
     def resolve_validate_contract_code(self, info, **kwargs):
         if not info.context.user.has_perms(ContractConfig.gql_query_contract_perms):
