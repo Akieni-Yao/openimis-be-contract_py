@@ -61,7 +61,7 @@ class Query(graphene.ObjectType):
 
     validate_enddate_by_periodicity = graphene.Date(
         start_date=graphene.Date(required=True),
-        policyholder_id=graphene.Int(required=True)
+        policyholder_id=graphene.UUID(required=True)
     )
 
     def resolve_validate_enddate_by_periodicity(self, info, start_date, policyholder_id):
