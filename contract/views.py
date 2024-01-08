@@ -1,5 +1,8 @@
 import pandas as pd
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+
+from contract.models import Contract
 
 
 def generate_contract_excel_data(contract):
@@ -22,9 +25,9 @@ def generate_contract_excel_data(contract):
         return None
 
 
-def single_contract(request, contract):
+def single_contract(request, id):
     try:
-        # Generate processed contract data
+        contract = get_object_or_404(Contract, id=id)
         contract_data = generate_contract_excel_data(contract)
 
         if contract_data is None:

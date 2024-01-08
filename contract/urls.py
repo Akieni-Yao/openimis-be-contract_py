@@ -3,5 +3,5 @@ from django.urls import path
 from contract import views
 
 urlpatterns = [
-    path("export/<contract_id>/contract", views.single_contract),
+    path("export/<id>/contract", views.single_contract),
 ]
