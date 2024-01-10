@@ -12,7 +12,7 @@ def generate_multi_contract_excel_data(contract_detail):
         eecp = None
         ei = None
         cpb = contract_detail.contribution_plan_bundle
-        gross_salary = float(contract_detail.json_data.get('calculation_rule', {}).get('income', 0))
+        gross_salary = float(contract_detail.json_ext.get('calculation_rule', {}).get('income', 0))
         cpd_code_name = f"{contract_detail.contribution_plan_bundle.code}-{contract_detail.contribution_plan_bundle.name}"
         cpbd = ContributionPlanBundleDetails.objects.filter(
             contribution_plan_bundle=cpb,
