@@ -1,68 +1,43 @@
 import pandas as pd
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 
-from contract.models import Contract, ContractDetails
-
-
-def generate_contract_excel_data(contract):
-    try:
-        # Process contract data here and return a dictionary or list of dictionaries with the processed data
-        contract_data = {
-            "Code": [contract.code],  # List with a single element for each field
-            "État": [contract.state],
-            "Montant": [contract.amount],
-            "Date d'échéance du paiement": [str(contract.date_payment_due)],
-            "Valable à partir de": [str(contract.date_valid_from)],
-            "Valable jusqu'à": [str(contract.date_valid_to)],
-            "Amendement": [contract.amendment],
-        }
-        return contract_data
-    except Exception as e:
-        # Handle exceptions here
-        print(f"Error generating contract data: {e}")
-        return None
-
-
-def single_contract(request, id):
-    try:
-        contract = get_object_or_404(Contract, id=id)
-        contract_data = generate_contract_excel_data(contract)
-
-        if contract_data is None:
-            # Handle the case where contract data generation failed
-            return HttpResponse("Failed to generate contract data", status=500)
-
-        # Convert contract data to a DataFrame
-        df = pd.DataFrame(contract_data)
-
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="data.xlsx"'
-
-        # Write DataFrame to response as an Excel file
-        df.to_excel(response, index=False, header=True)
-
-        return response
-    except Exception as e:
-        # Handle exceptions during export
-        print(f"Error exporting contract data: {e}")
-        return HttpResponse("Failed to export contract data", status=500)
+from contract.models import ContractDetails
+from contribution_plan.models import ContributionPlanBundleDetails
+from policyholder.models import PolicyHolderInsuree
 
 
 def generate_multi_contract_excel_data(contract_detail):
     try:
+        ercp = None
+        eecp = None
+        cpb = contract_detail.contribution_plan_bundle
+        ei = float(contract_detail.json_data.get('calculation_rule', {}).get('income', 0))
+        cpbd = ContributionPlanBundleDetails.objects.filter(
+            contribution_plan_bundle=cpb,
+            is_deleted=False
+        ).first()
+        conti_plan = cpbd.contribution_plan if cpbd else None
+        if conti_plan:
+            json_data = conti_plan.json_ext if conti_plan.json_ext else None
+            calculation_rule = json_data.get('calculation_rule') if json_data else None
+
+            if calculation_rule:
+                ercp = float(calculation_rule.get('employerContribution', 0))
+                eecp = float(calculation_rule.get('employeeContribution', 0))
+        insuree = contract_detail.insuree
+        insuree_name = f"{insuree.other_names} {insuree.last_name}"
+        employer_contribution = round(ei * ercp / 100, 2) if ercp and ei is not None else 0
+        salary_share = round(ei * eecp / 100, 2) if eecp and ei is not None else 0
+        total = salary_share + employer_contribution
         contract_data = {
+            "Assuré":insuree_name,
             "Numéro CAMU": contract_detail.insuree.camu_number,
-            "N° d'ins. du Resp": contract_detail.contract.state,
+            "N° d'ins. du Resp": contract_detail.insuree.chf_id,
             "Ensemble du plan de contribution": contract_detail.contribution_plan_bundle.name,
-            # "Date Payment Due": str(contract_detail.contract.date_payment_due),
-            # "Date Valid From": str(contract_detail.contract.date_valid_from),
-            # "Date Valid To": str(contract_detail.contract.date_valid_to),
-            # "Amendment": contract_detail.contract.amendment,
-            # # Add more fields if needed
-            # "Insuree": contract_detail.insuree.name,  # Example: Accessing related Insuree data
-            # "Contribution Plan Bundle": contract_detail.contribution_plan_bundle.name
-            # Example: Accessing related ContributionPlanBundle data
+            "Gross Salary": str(contract_detail.contract.date_payment_due),
+            "Cotisation de l'employeur": str(employer_contribution),
+            "Cotisation  des employés": str(salary_share),
+            "Total": str(total),
         }
         return contract_data
     except Exception as e:
