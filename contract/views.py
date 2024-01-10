@@ -53,7 +53,7 @@ def generate_multi_contract_excel_data(contract_detail):
             "Cotisation  des employés": str(salary_share),
             "Total": str(total),
         }
-        return f"Contract data generated successfully: {contract_data}"
+        return contract_data
     except AttributeError as ae:
         return f"Attribute error: {ae}"
     except KeyError as ke:
