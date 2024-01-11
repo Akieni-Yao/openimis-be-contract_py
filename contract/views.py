@@ -11,9 +11,9 @@ def generate_multi_contract_excel_data(contract_detail):
         ercp = None
         eecp = None
         ei = None
-        cpb = getattr(contract_detail, 'contribution_plan_bundle', None)
-        gross_salary = float(getattr(contract_detail.json_ext, 'get', {}).get('calculation_rule', {}).get('income', 0))
-        cpd_code_name = f"{cpb.code}-{cpb.name}" if cpb else ""
+        cpb = contract_detail.contribution_plan_bundle
+        gross_salary = float(contract_detail.json_ext.get('calculation_rule', {}).get('income', 0))
+        cpd_code_name = f"{contract_detail.contribution_plan_bundle.code}-{contract_detail.contribution_plan_bundle.name}"
         cpbd = ContributionPlanBundleDetails.objects.filter(
             contribution_plan_bundle=cpb,
             is_deleted=False
@@ -46,15 +46,19 @@ def generate_multi_contract_excel_data(contract_detail):
         total = salary_share + employer_contribution
         contract_data = {
             "Assuré": insuree_name,
-            "Numéro CAMU": getattr(insuree, 'camu_number', ''),
-            "N° d'ins. du Resp": getattr(insuree, 'chf_id', ''),
+            "Numéro CAMU": contract_detail.insuree.camu_number,
+            "N° d'ins. du Resp": contract_detail.insuree.chf_id,
             "Ensemble du plan de contribution": cpd_code_name,
             "Gross Salary": str(gross_salary),
             "Cotisation de l'employeur": str(employer_contribution),
-            "Cotisation des employés": str(salary_share),
+            "Cotisation  des employés": str(salary_share),
             "Total": str(total),
         }
         return contract_data
+    except AttributeError as ae:
+        return f"Attribute error: {ae}"
+    except KeyError as ke:
+        return f"Key error: {ke}"
     except Exception as e:
         return f"Error generating contract data: {e}"
 
