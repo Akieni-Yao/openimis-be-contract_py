@@ -56,26 +56,38 @@ def on_contract_approve_signal(sender, **kwargs):
     rounded_amount = round(amount_due, 2)
     contract_to_approve.amount_due = rounded_amount
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
-    result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details)
-    # STATE_EXECUTABLE
+    
+    
     from core import datetime
     now = datetime.datetime.now()
+    # check and add penalty of the contract
+    ccpdm = ContractContributionPlanDetails.objects.filter(contract_details__contract__id=contract_to_approve.id, is_deleted=False).first()
+    product_config = ccpdm.contribution_plan.benefit_plan.config_data
+    last_date_to_create_contract = product_config.get("declarationEndDate")
+    last_date_to_create_contract = datetime.datetime.strptime(last_date_to_create_contract, "%Y-%m-%d").date()
+    contract_create_date = contract_to_approve.date_created
+    if last_date_to_create_contract < contract_create_date.date():
+        contract_to_approve.penalty_raised = True
+        contract_to_approve.penalty_raised_date = now
+    
+    result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details, product_config)
+    # STATE_EXECUTABLE
     contract_to_approve.date_approved = now
     contract_to_approve.state = Contract.STATE_EXECUTABLE
     approved_contract = __save_or_update_contract(contract=contract_to_approve, user=user)
     email_contact_name = contract_to_approve.policy_holder.contact_name["contactName"] \
         if contract_to_approve.policy_holder.contact_name and "contactName" in contract_to_approve.policy_holder.contact_name \
         else contract_to_approve.policy_holder.contact_name
-    email = __send_email_notify_payment(
-        code=contract_to_approve.code,
-        name=contract_to_approve.policy_holder.trade_name,
-        contact_name=email_contact_name,
-        amount_due=contract_to_approve.amount_due,
-        payment_reference=contract_to_approve.payment_reference,
-        email=contract_to_approve.policy_holder.email,
-        policy_holder_id=contract_to_approve.policy_holder_id,
-        contract_approved_date = now,
-    )
+    # email = __send_email_notify_payment(
+    #     code=contract_to_approve.code,
+    #     name=contract_to_approve.policy_holder.trade_name,
+    #     contact_name=email_contact_name,
+    #     amount_due=contract_to_approve.amount_due,
+    #     payment_reference=contract_to_approve.payment_reference,
+    #     email=contract_to_approve.policy_holder.email,
+    #     policy_holder_id=contract_to_approve.policy_holder_id,
+    #     contract_approved_date = now,
+    # )
     return approved_contract
 
 
@@ -322,13 +334,15 @@ def __save_or_update_contract(contract, user):
     return contract
 
 
-def __create_payment(contract, payment_service, contract_cpd):
+def __create_payment(contract, payment_service, contract_cpd, product_config=None):
     from core import datetime
     now = datetime.datetime.now()
     # format payment data
     payment_data = {
         "expected_amount": contract.amount_due,
         "request_date": now,
+        "contract": contract,
+        "product_config": product_config,
     }
     payment_details_data = payment_service.collect_payment_details(contract_cpd["contribution_plan_details"])
     return payment_service.create(payment=payment_data, payment_details=payment_details_data)

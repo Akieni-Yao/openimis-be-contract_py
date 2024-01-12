@@ -20,6 +20,11 @@ class ContractCreateInputType(OpenIMISMutation.Input):
     date_valid_from = graphene.Date(required=False)
     date_valid_to = graphene.Date(required=False)
     json_ext = graphene.types.json.JSONString(required=False)
+    
+    # penalty_waive_off_contract = graphene.Boolean(required=True)
+    # penalty_waive_off_payment = graphene.Boolean(required=True)
+    # penalty_waive_off_contract_reason = graphene.String(required=False)
+    # penalty_waive_off_payment_reason = graphene.String(required=False)
 
 
 class ContractUpdateInputType(OpenIMISMutation.Input):
@@ -40,6 +45,11 @@ class ContractUpdateInputType(OpenIMISMutation.Input):
     date_valid_from = graphene.Date(required=False)
     date_valid_to = graphene.Date(required=False)
     json_ext = graphene.types.json.JSONString(required=False)
+    
+    # penalty_waive_off_contract = graphene.Boolean(required=True)
+    # penalty_waive_off_payment = graphene.Boolean(required=True)
+    # penalty_waive_off_contract_reason = graphene.String(required=False)
+    # penalty_waive_off_payment_reason = graphene.String(required=False)
 
 
 class ContractSubmitInputType(OpenIMISMutation.Input):
