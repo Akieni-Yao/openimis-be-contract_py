@@ -277,48 +277,48 @@ class Contract(object):
 
     @check_authentication
     def approve(self, contract):
-        # try:
-        # check for approve/ask for change right perms/authorites
-        if not self.user.has_perms(ContractConfig.gql_mutation_approve_ask_for_change_contract_perms):
-            raise PermissionError("Unauthorized")
-        contract_id = f"{contract['id']}"
-        contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
-        state_right = self.__check_rights_by_status(contract_to_approve.state)
-        # check if we can submit
-        if state_right != "approvable":
-            raise ContractUpdateError("You cannot approve this contract! The status of contract is not Negotiable!")
-        contract_details_list = {}
-        contract_details_list["data"] = self.__gather_policy_holder_insuree(
-            list(ContractDetailsModel.objects.filter(contract_id=contract_to_approve.id).values()),
-            contract_to_approve.amendment,
-            contract_to_approve.date_valid_from,
-        )
-        
-        # Adding previous details in current contract 
-        prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).order_by('-date_created')
-        if len(prev_contract) > 2:
-            contract_to_approve.parent=prev_contract[1]
+        try:
+            # check for approve/ask for change right perms/authorites
+            if not self.user.has_perms(ContractConfig.gql_mutation_approve_ask_for_change_contract_perms):
+                raise PermissionError("Unauthorized")
+            contract_id = f"{contract['id']}"
+            contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
+            state_right = self.__check_rights_by_status(contract_to_approve.state)
+            # check if we can submit
+            if state_right != "approvable":
+                raise ContractUpdateError("You cannot approve this contract! The status of contract is not Negotiable!")
+            contract_details_list = {}
+            contract_details_list["data"] = self.__gather_policy_holder_insuree(
+                list(ContractDetailsModel.objects.filter(contract_id=contract_to_approve.id).values()),
+                contract_to_approve.amendment,
+                contract_to_approve.date_valid_from,
+            )
+            
+            # Adding previous details in current contract 
+            prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).order_by('-date_created')
+            if len(prev_contract) > 2:
+                contract_to_approve.parent=prev_contract[1]
 
-        # send signal - approve contract
-        ccpd_service = ContractContributionPlanDetails(user=self.user)
-        payment_service = PaymentService(user=self.user)
-        signal_contract_approve.send(
-            sender=ContractModel,
-            contract=contract_to_approve,
-            user=self.user,
-            contract_details_list=contract_details_list,
-            service_object=self,
-            payment_service=payment_service,
-            ccpd_service=ccpd_service,
-        )
-        # ccpd.create_contribution(contract_contribution_plan_details)
-        dict_representation = {}
-        id_contract_approved = f"{contract_to_approve.id}"
-        dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
-        return _output_result_success(dict_representation=dict_representation)
-        # except Exception as exc:
-        #     logger.exception("Exception in approve contract")
-        #     return _output_exception(model_name="Contract", method="approve", exception=exc)
+            # send signal - approve contract
+            ccpd_service = ContractContributionPlanDetails(user=self.user)
+            payment_service = PaymentService(user=self.user)
+            signal_contract_approve.send(
+                sender=ContractModel,
+                contract=contract_to_approve,
+                user=self.user,
+                contract_details_list=contract_details_list,
+                service_object=self,
+                payment_service=payment_service,
+                ccpd_service=ccpd_service,
+            )
+            # ccpd.create_contribution(contract_contribution_plan_details)
+            dict_representation = {}
+            id_contract_approved = f"{contract_to_approve.id}"
+            dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
+            return _output_result_success(dict_representation=dict_representation)
+        except Exception as exc:
+            logger.exception("Exception in approve contract")
+            return _output_exception(model_name="Contract", method="approve", exception=exc)
 
     @check_authentication
     def counter(self, contract):
