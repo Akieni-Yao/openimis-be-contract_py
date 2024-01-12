@@ -5,6 +5,7 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
+from payment.payment_utils import payment_code_generation
 from .config import get_message_counter_contract
 
 from django.db.models.query import Q
@@ -102,7 +103,14 @@ class Contract(object):
                 total_amount = self.evaluate_contract_valuation(
                     contract_details_result=result_ph_insuree,
                 )["total_amount"]
-                c.amount_notified = total_amount
+                if total_amount is not None:
+                    if isinstance(total_amount, str):
+                        try:
+                            total_amount = float(total_amount)
+                        except ValueError:
+                            pass  # Keep the original value if it can't be converted to a number
+                    rounded_total_amount = round(float(total_amount), 2)
+                    c.amount_notified = rounded_total_amount
             historical_record = c.history.all().last()
             c.json_ext = _save_json_external(
                 user_id=str(historical_record.user_updated.id),
@@ -214,7 +222,15 @@ class Contract(object):
             contract_contribution_plan_details = self.evaluate_contract_valuation(
                 contract_details_result=contract_details_list,
             )
-            contract_to_submit.amount_rectified = contract_contribution_plan_details["total_amount"]
+            ar_amount = contract_contribution_plan_details["total_amount"]
+            if ar_amount is not None:
+                if isinstance(ar_amount, str):
+                    try:
+                        ar_amount = float(ar_amount)
+                    except ValueError:
+                        pass  # Keep the original value if it can't be converted to a number
+                rounded_total_amount = round(float(ar_amount), 2)
+                contract_to_submit.amount_rectified = rounded_total_amount
             # send signal
             contract_to_submit.state = ContractModel.STATE_NEGOTIABLE
             signal_contract.send(sender=ContractModel, contract=contract_to_submit, user=self.user)
@@ -265,7 +281,6 @@ class Contract(object):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
             contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
-            # variable to check if we have right to approve
             state_right = self.__check_rights_by_status(contract_to_approve.state)
             # check if we can submit
             if state_right != "approvable":
@@ -867,6 +882,14 @@ class PaymentService(object):
             from core import datetime
             now = datetime.datetime.now()
             p = update_or_create_payment(data=payment, user=self.user)
+            try:
+                if payment_details and len(payment_details) > 0:
+                    payment_code = payment_code_generation(payment_details[0]["premium"])
+                    p.payment_code = payment_code
+                    print(p.payment_code)
+                    p.save()
+            except Exception as e:
+                logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
             dict_representation['id'], dict_representation['uuid'] = (p.id, p.uuid)
             if payment_details:
@@ -892,6 +915,7 @@ class PaymentService(object):
                 method="createPayment",
                 exception=exc
             )
+
 
     @check_authentication
     def collect_payment_details(self, contract_contribution_plan_details):

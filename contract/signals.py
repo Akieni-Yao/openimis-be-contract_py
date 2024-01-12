@@ -1,12 +1,13 @@
 from core.service_signals import ServiceSignalBindType
 from policy.models import Policy
 from .config import get_message_approved_contract
+from .email_report import  generate_report_for_employee_declaration
 from .models import Contract, ContractContributionPlanDetails
 from core.signals import Signal, register_service_signal, bind_service_signal
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.conf import settings
-from django.core.mail import send_mail, BadHeaderError
+from django.core.mail import send_mail, BadHeaderError, EmailMessage
 from django.dispatch import receiver
 from insuree.apps import InsureeConfig
 from insuree.signals import signal_before_insuree_policy_query
@@ -48,7 +49,12 @@ def on_contract_approve_signal(sender, **kwargs):
         contract_details_result=contract_details_list,
         save=True
     )
-    contract_to_approve.amount_due = contract_contribution_plan_details["total_amount"]
+    # contract_to_approve.amount_due = contract_contribution_plan_details["total_amount"]
+    amount_due = contract_contribution_plan_details["total_amount"]
+    if isinstance(amount_due, str):
+        amount_due = float(amount_due)
+    rounded_amount = round(amount_due, 2)
+    contract_to_approve.amount_due = rounded_amount
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
     result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details)
     # STATE_EXECUTABLE
@@ -67,6 +73,8 @@ def on_contract_approve_signal(sender, **kwargs):
         amount_due=contract_to_approve.amount_due,
         payment_reference=contract_to_approve.payment_reference,
         email=contract_to_approve.policy_holder.email,
+        policy_holder_id=contract_to_approve.policy_holder_id,
+        contract_approved_date = now,
     )
     return approved_contract
 
@@ -326,11 +334,11 @@ def __create_payment(contract, payment_service, contract_cpd):
     return payment_service.create(payment=payment_data, payment_details=payment_details_data)
 
 
-def __send_email_notify_payment(code, name, contact_name, amount_due, payment_reference, email):
+def __send_email_notify_payment(code, name, contact_name, amount_due, payment_reference, email,policy_holder_id,contract_approved_date):
     try:
-        email = send_mail(
+        email_message = EmailMessage(
             subject='Contract payment notification',
-            message=get_message_approved_contract(
+            body=get_message_approved_contract(
                 language=settings.LANGUAGE_CODE.split('-')[0],
                 code=code,
                 name=name,
@@ -339,9 +347,11 @@ def __send_email_notify_payment(code, name, contact_name, amount_due, payment_re
                 payment_reference=payment_reference
             ),
             from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
-            fail_silently=False,
+            to=[email],
         )
-        return email
+        pdf_file = generate_report_for_employee_declaration(code,policy_holder_id,contract_approved_date,amount_due)
+        email_message.attach('payment_receipt.pdf', pdf_file, 'application/pdf')
+        email_message.send()
+        return True
     except BadHeaderError:
         return ValueError('Invalid header found.')
