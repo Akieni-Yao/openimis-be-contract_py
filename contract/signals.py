@@ -1,7 +1,7 @@
 from core.service_signals import ServiceSignalBindType
 from policy.models import Policy
 from .config import get_message_approved_contract
-from .email_report import  generate_report_for_employee_declaration
+from .email_report import generate_report_for_employee_declaration
 from .models import Contract, ContractContributionPlanDetails
 from core.signals import Signal, register_service_signal, bind_service_signal
 from django.db.models import Q
@@ -20,6 +20,9 @@ from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
+
+from .views import multi_contract, send_contract
+
 logger = logging.getLogger("openimis." + __name__)
 
 _contract_signal_params = ["contract", "user"]
@@ -142,6 +145,7 @@ def on_contract_approve_signal(sender, **kwargs):
         if contract_to_approve.policy_holder.contact_name and "contactName" in contract_to_approve.policy_holder.contact_name \
         else contract_to_approve.policy_holder.contact_name
     email = __send_email_notify_payment(
+        contract_id = contract_to_approve.id,
         code=contract_to_approve.code,
         name=contract_to_approve.policy_holder.trade_name,
         contact_name=email_contact_name,
@@ -416,7 +420,7 @@ def __create_payment(contract, payment_service, contract_cpd, product_config=Non
     return payment_service.create(payment=payment_data, payment_details=payment_details_data)
 
 
-def __send_email_notify_payment(code, name, contact_name, amount_due, payment_reference, email,policy_holder_id,contract_approved_date):
+def __send_email_notify_payment(contract_id,code, name, contact_name, amount_due, payment_reference, email,policy_holder_id,contract_approved_date):
     try:
         email_message = EmailMessage(
             subject='Contract payment notification',
@@ -431,8 +435,14 @@ def __send_email_notify_payment(code, name, contact_name, amount_due, payment_re
             from_email=settings.EMAIL_HOST_USER,
             to=[email],
         )
-        pdf_file = generate_report_for_employee_declaration(code,policy_holder_id,contract_approved_date,amount_due)
+        # Attach the PDF file
+        pdf_file = generate_report_for_employee_declaration(code, policy_holder_id, contract_approved_date, amount_due)
         email_message.attach('payment_receipt.pdf', pdf_file, 'application/pdf')
+        # Attach the Excel file
+        excel_file =  send_contract(contract_id)
+        email_message.attach('employee_declaration.xlsx', excel_file,
+                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        # Send the email
         email_message.send()
         return True
     except BadHeaderError:
