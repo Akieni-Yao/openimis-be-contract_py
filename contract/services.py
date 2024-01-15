@@ -282,7 +282,9 @@ class Contract(object):
             if not self.user.has_perms(ContractConfig.gql_mutation_approve_ask_for_change_contract_perms):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
+            logger.info(f"contract service approve : contract_id = {contract_id}")
             contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
+            logger.info(f"contract service approve : contract_to_approve = {contract_to_approve.id}")
             state_right = self.__check_rights_by_status(contract_to_approve.state)
             # check if we can submit
             if state_right != "approvable":
@@ -297,6 +299,7 @@ class Contract(object):
             # Adding previous details in current contract 
             prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).order_by('-date_created')
             if len(prev_contract) > 2:
+                logger.info(f"contract service approve : prev_contract = {prev_contract[1]}")
                 contract_to_approve.parent=prev_contract[1]
 
             # send signal - approve contract
@@ -314,6 +317,7 @@ class Contract(object):
             # ccpd.create_contribution(contract_contribution_plan_details)
             dict_representation = {}
             id_contract_approved = f"{contract_to_approve.id}"
+            logger.info(f"contract service approve : id_contract_approved = {id_contract_approved}")
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
