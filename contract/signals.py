@@ -69,6 +69,8 @@ def on_contract_approve_signal(sender, **kwargs):
     product_config = ccpdm.contribution_plan.benefit_plan.config_data
     logger.info(f"on_contract_approve_signal : product_id = {ccpdm.contribution_plan.benefit_plan.id}")
     
+    logger.info(f"on_contract_approve_signal : product_config = {ccpdm.contribution_plan.benefit_plan.config_data}")
+    
     start_date_to_create_contract = product_config.get("declarationStartDate")
     last_date_to_create_contract = product_config.get("declarationEndDate")
     
