@@ -805,6 +805,7 @@ class ContractContributionPlanDetails(object):
            cp - contribution plan
            return ccpd list and total amount
         """
+        logger.info("__append_contract_cpd_to_list : --------- Start ---------")
         from core import datetime, datetimedelta
         # TODO - catch grace period from calculation rule if is defined
         #  grace_period = cp.calculation_rule etc
@@ -826,22 +827,31 @@ class ContractContributionPlanDetails(object):
         else:
             # there is additional contribution - we have to calculate/recalculate
             total_amount = total_amount - calculated_amount
+            logger.info(f"__append_contract_cpd_to_list : total_amount = {total_amount}")
             for ccpd_result in ccpd_results:
+                logger.info(f"__append_contract_cpd_to_list : ccpd_result = {ccpd_result}")
                 length_ccpd = float((ccpd_result.date_valid_to.year - ccpd_result.date_valid_from.year) * 12 \
                                     + (ccpd_result.date_valid_to.month - ccpd_result.date_valid_from.month))
+                logger.info(f"__append_contract_cpd_to_list : length_ccpd = {length_ccpd}")
                 periodicity = float(ccpd_result.contribution_plan.periodicity)
+                logger.info(f"__append_contract_cpd_to_list : periodicity = {periodicity}")
                 # time part of split as a fraction to count contribution value for that split period properly
                 part_time_period = length_ccpd / periodicity
+                logger.info(f"__append_contract_cpd_to_list : part_time_period = {part_time_period}")
                 # rc - result calculation
                 rc = run_calculation_rules(ccpd, "update", self.user)
                 if rc:
+                    logger.info(f"__append_contract_cpd_to_list : run_calculation_rules = {rc}")
                     calculated_amount = rc[0][1] * part_time_period if rc[0][1] not in [None, False] else 0
                     total_amount += calculated_amount
+                    logger.info(f"__append_contract_cpd_to_list : for calculated_amount = {calculated_amount}")
+                    logger.info(f"__append_contract_cpd_to_list : for total_amount = {total_amount}")
                 ccpd_record = model_to_dict(ccpd_result)
                 ccpd_record["calculated_amount"] = calculated_amount
                 uuid_string = f"{ccpd_result.id}"
                 ccpd_record['id'], ccpd_record['uuid'] = (uuid_string, uuid_string)
                 ccpd_list.append(ccpd_record)
+        logger.info("__append_contract_cpd_to_list : --------- End ---------")
         return ccpd_list, total_amount, ccpd_record
 
     @check_authentication
