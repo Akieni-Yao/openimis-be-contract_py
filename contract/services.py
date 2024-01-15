@@ -30,6 +30,8 @@ from policy.models import Policy
 from payment.models import Payment, PaymentDetail
 from payment.services import update_or_create_payment
 from insuree.models import Insuree
+from datetime import datetime
+from django.utils import timezone
 
 from dateutil.relativedelta import relativedelta
 
@@ -291,6 +293,12 @@ class Contract(object):
                 contract_to_approve.amendment,
                 contract_to_approve.date_valid_from,
             )
+            
+            # Adding previous details in current contract 
+            prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).order_by('-date_created')
+            if len(prev_contract) > 2:
+                contract_to_approve.parent=prev_contract[1]
+
             # send signal - approve contract
             ccpd_service = ContractContributionPlanDetails(user=self.user)
             payment_service = PaymentService(user=self.user)
@@ -301,7 +309,7 @@ class Contract(object):
                 contract_details_list=contract_details_list,
                 service_object=self,
                 payment_service=payment_service,
-                ccpd_service=ccpd_service
+                ccpd_service=ccpd_service,
             )
             # ccpd.create_contribution(contract_contribution_plan_details)
             dict_representation = {}
