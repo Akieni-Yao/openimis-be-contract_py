@@ -843,6 +843,7 @@ class ContractContributionPlanDetails(object):
                 if rc:
                     logger.info(f"__append_contract_cpd_to_list : run_calculation_rules = {rc}")
                     calculated_amount = float(rc[0][1]) * float(part_time_period) if rc[0][1] not in [None, False] else 0
+                    total_amount = float(total_amount)
                     total_amount += calculated_amount
                     logger.info(f"__append_contract_cpd_to_list : for calculated_amount = {calculated_amount}")
                     logger.info(f"__append_contract_cpd_to_list : for total_amount = {total_amount}")
