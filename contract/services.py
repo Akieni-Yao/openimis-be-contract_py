@@ -5,7 +5,7 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
-from payment.payment_utils import payment_code_generation
+from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
 
 from django.db.models.query import Q
@@ -910,6 +910,10 @@ class PaymentService(object):
                     p.payment_code = payment_code
                     print(p.payment_code)
                     p.save()
+                    try:
+                        create_paymentcode_openkmfolder(payment_code)
+                    except Exception as e:
+                        pass
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
