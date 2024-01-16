@@ -70,17 +70,20 @@ class Query(graphene.ObjectType):
             if policy_holder:
                 ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
                                                                      is_deleted=False).first()
-                contract = Contract.objects.filter(policy_holder=policy_holder, is_deleted=False).first()
+                if ph_cpb:
+                    contribution_plan_bundle = ph_cpb.contribution_plan_bundle
+                    periodicity = contribution_plan_bundle.periodicity
+
+                contract = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False) \
+                    .order_by('-date_valid_to') \
+                    .first()
 
                 if contract:
                     contract_last_date = contract.date_valid_to
                     # Check for gap between start_date and contract_last_date
-                    if contract_last_date and start_date > (contract_last_date + timedelta(days=1)).date():
+                    if start_date != (contract_last_date + timedelta(days=1)).date():
                         return "Please create a contract for the previous month first"
 
-                if ph_cpb:
-                    contribution_plan_bundle = ph_cpb.contribution_plan_bundle
-                    periodicity = contribution_plan_bundle.periodicity
 
                     if periodicity is not None:
                         # Identify the days of the current month
