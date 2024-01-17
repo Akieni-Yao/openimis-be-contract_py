@@ -18,7 +18,7 @@ def generate_multi_contract_excel_data(contract_detail):
                                                                                           contract_detail[
                                                                                               "insuree"].get(
                                                                                               "camu_number") else '',
-                         "N° d'ins. du Resp": contract_detail["insuree"]["chfId"] if contract_detail.get("insuree") and
+                         "Numéro CAMU temporaire": contract_detail["insuree"]["chfId"] if contract_detail.get("insuree") and
                                                                                      contract_detail["insuree"].get(
                                                                                          "chfId") else '',
                          "Ensemble du plan de contribution": contract_detail["contributionPlanBundle"]["code"] + " - " +
