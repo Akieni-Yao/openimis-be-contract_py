@@ -757,7 +757,8 @@ class ContractContributionPlanDetails(object):
                     rc = run_calculation_rules(ccpd, "create", self.user)
                     if rc:
                         calculated_amount = rc[0][1] if rc[0][1] not in [None, False] else 0
-                        total_amount += calculated_amount
+                        total_amount = float(total_amount)
+                        total_amount += float(calculated_amount)
                     ccpd_record = model_to_dict(ccpd)
                     ccpd_record["calculated_amount"] = calculated_amount
                     if contract_contribution_plan_details["save"]:
