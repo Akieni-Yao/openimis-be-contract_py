@@ -24,7 +24,7 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
         activity_code = json_ext_data.get('activityCode', '')
         number_of_insuree = json_ext_data.get('nbEmployees', '')
         converted_activity_code = convert_activity_data(activity_code)
-        # converted_creation_date = str(contract_approved_date.strftime('%d-%m-%Y'))
+        converted_creation_date = str(contract_approved_date.strftime('%d-%m-%Y'))
         # ad = str(amount_due)
         cpb = ph_cpb.contribution_plan_bundle
         cpbd = ContributionPlanBundleDetails.objects.filter(contribution_plan_bundle=cpb, is_deleted=False).first()
@@ -53,7 +53,7 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
             "data": {
                 "rib": "",
                 "contract_number": str(code) if code else '',
-                "creation_date":  '',
+                "creation_date":  converted_creation_date if converted_creation_date else '',
                 "camu_code": policyholder.code if policyholder.code else '',
                 "activity_code": str(converted_activity_code) if converted_activity_code else '',
                 "niu": policyholder.json_ext['jsonExt']['niu'] if hasattr(policyholder,
