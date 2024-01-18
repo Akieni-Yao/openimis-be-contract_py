@@ -1,7 +1,7 @@
 from core.service_signals import ServiceSignalBindType
 from policy.models import Policy
 from .config import get_message_approved_contract
-from .email_report import  generate_report_for_employee_declaration
+from .email_report import generate_report_for_employee_declaration
 from .models import Contract, ContractContributionPlanDetails
 from core.signals import Signal, register_service_signal, bind_service_signal
 from django.db.models import Q
@@ -20,6 +20,9 @@ from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
+
+from .views import multi_contract, send_contract
+
 logger = logging.getLogger("openimis." + __name__)
 
 _contract_signal_params = ["contract", "user"]
@@ -38,12 +41,14 @@ def on_contract_signal(sender, **kwargs):
 
 def on_contract_approve_signal(sender, **kwargs):
     # approve scenario
+    logger.info("on_contract_approve_signal : --------------------- Start ---------------------")
     user = kwargs["user"]
     contract_to_approve = kwargs["contract"]
     contract_details_list = kwargs["contract_details_list"]
     contract_service = kwargs["service_object"]
     payment_service = kwargs["payment_service"]
     ccpd_service = kwargs["ccpd_service"]
+    logger.info(f"on_contract_approve_signal : contract_to_approve = {contract_to_approve}")
     # contract valuation
     contract_contribution_plan_details = contract_service.evaluate_contract_valuation(
         contract_details_result=contract_details_list,
@@ -51,15 +56,97 @@ def on_contract_approve_signal(sender, **kwargs):
     )
     # contract_to_approve.amount_due = contract_contribution_plan_details["total_amount"]
     amount_due = contract_contribution_plan_details["total_amount"]
+    logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
     if isinstance(amount_due, str):
         amount_due = float(amount_due)
     rounded_amount = round(amount_due, 2)
     contract_to_approve.amount_due = rounded_amount
+    logger.info(f"on_contract_approve_signal : rounded_amount = {rounded_amount}")
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
-    result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details)
-    # STATE_EXECUTABLE
+    
+    
     from core import datetime
     now = datetime.datetime.now()
+    # check and add penalty of the contract
+    ccpdm = ContractContributionPlanDetails.objects.filter(contract_details__contract__id=contract_to_approve.id, is_deleted=False).first()
+    product_config = ccpdm.contribution_plan.benefit_plan.config_data
+    logger.info(f"on_contract_approve_signal : product_id = {ccpdm.contribution_plan.benefit_plan.id}")
+    
+    logger.info(f"on_contract_approve_signal : product_config = {ccpdm.contribution_plan.benefit_plan.config_data}")
+    
+    start_date_to_create_contract = product_config.get("declarationStartDate")
+    last_date_to_create_contract = product_config.get("declarationEndDate")
+    
+    start_date_to_create_contract = datetime.datetime.strptime(start_date_to_create_contract, "%Y-%m-%d").date()
+    last_date_to_create_contract = datetime.datetime.strptime(last_date_to_create_contract, "%Y-%m-%d").date()
+    
+    start_date_day_to_create_contract = start_date_to_create_contract.day
+    last_date_day_to_create_contract = last_date_to_create_contract.day
+    
+    contract_create_date = contract_to_approve.date_created.date()
+    contract_valid_from_date = contract_to_approve.date_valid_from.date()
+    is_future_contract = False
+    if contract_valid_from_date.year > contract_create_date.year:
+        print("is_future_contract  =  True")
+        is_future_contract = True
+    elif contract_valid_from_date.year == contract_create_date.year and contract_valid_from_date.month > contract_create_date.month:
+        print("is_future_contract  =  True")
+        is_future_contract = True
+
+    contract_create_date_day = contract_create_date.day
+    contract_create_date_month = contract_create_date.month
+    contract_create_date_year = contract_create_date.year
+
+    logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
+    logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
+    logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
+    
+    if start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+        logger.info("on_contract_approve_signal : date day condition 1 ---------------------")
+        start_date_to_create_contract = start_date_to_create_contract.replace(
+            day=start_date_day_to_create_contract, 
+            month=contract_create_date_month, year=contract_create_date_year)
+        last_date_to_create_contract = last_date_to_create_contract.replace(
+            day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+    elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+        logger.info("on_contract_approve_signal : date day condition 2 ---------------------")
+        start_date_to_create_contract = start_date_to_create_contract.replace(
+            day=start_date_day_to_create_contract, 
+            month=contract_create_date_month, year=contract_create_date_year)
+        last_date_to_create_contract = last_date_to_create_contract.replace(
+            day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+    elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
+        logger.info("on_contract_approve_signal : date day condition 3 ---------------------")
+        start_date_to_create_contract = start_date_to_create_contract.replace(
+            day=start_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+        if contract_create_date_month == 12:
+            contract_create_date_month = 0
+            contract_create_date_year += 1
+        last_date_to_create_contract = last_date_to_create_contract.replace(
+            day=last_date_day_to_create_contract, month=contract_create_date_month + 1, year=contract_create_date_year)
+    elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+        logger.info("on_contract_approve_signal : date day condition 4 ---------------------")
+        last_date_to_create_contract = last_date_to_create_contract.replace(
+            day=last_date_day_to_create_contract, 
+            month=contract_create_date_month, year=contract_create_date_year)
+        if contract_create_date_month == 1:
+            contract_create_date_month = 13
+            contract_create_date_year -= 1
+        start_date_to_create_contract = start_date_to_create_contract.replace(
+            day=start_date_day_to_create_contract, 
+            month=contract_create_date_month - 1, year=contract_create_date_year)
+
+    logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
+    logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
+    logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
+    
+    if start_date_to_create_contract < contract_create_date and contract_create_date > last_date_to_create_contract and is_future_contract is False:
+        logger.info("on_contract_approve_signal : contract penalty applied ---------------------")
+        contract_to_approve.penalty_raised = True
+        contract_to_approve.penalty_raised_date = now
+    
+    result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details, product_config)
+    # STATE_EXECUTABLE
     contract_to_approve.date_approved = now
     contract_to_approve.state = Contract.STATE_EXECUTABLE
     approved_contract = __save_or_update_contract(contract=contract_to_approve, user=user)
@@ -67,6 +154,7 @@ def on_contract_approve_signal(sender, **kwargs):
         if contract_to_approve.policy_holder.contact_name and "contactName" in contract_to_approve.policy_holder.contact_name \
         else contract_to_approve.policy_holder.contact_name
     email = __send_email_notify_payment(
+        contract_id = contract_to_approve.id,
         code=contract_to_approve.code,
         name=contract_to_approve.policy_holder.trade_name,
         contact_name=email_contact_name,
@@ -76,6 +164,8 @@ def on_contract_approve_signal(sender, **kwargs):
         policy_holder_id=contract_to_approve.policy_holder_id,
         contract_approved_date = now,
     )
+    logger.info(f"on_contract_approve_signal : approved_contract = {approved_contract}")
+    logger.info("on_contract_approve_signal : --------------------- End ---------------------")
     return approved_contract
 
 
@@ -322,19 +412,24 @@ def __save_or_update_contract(contract, user):
     return contract
 
 
-def __create_payment(contract, payment_service, contract_cpd):
+def __create_payment(contract, payment_service, contract_cpd, product_config=None):
+    logger.info("__create_payment : ------------  start  ------------")
     from core import datetime
     now = datetime.datetime.now()
     # format payment data
     payment_data = {
         "expected_amount": contract.amount_due,
         "request_date": now,
+        "contract": contract,
+        "product_config": product_config,
     }
+    logger.info(f"__create_payment : payment_data = {payment_data}")
     payment_details_data = payment_service.collect_payment_details(contract_cpd["contribution_plan_details"])
+    logger.info("__create_payment : ------------  end  ------------")
     return payment_service.create(payment=payment_data, payment_details=payment_details_data)
 
 
-def __send_email_notify_payment(code, name, contact_name, amount_due, payment_reference, email,policy_holder_id,contract_approved_date):
+def __send_email_notify_payment(contract_id,code, name, contact_name, amount_due, payment_reference, email,policy_holder_id,contract_approved_date):
     try:
         email_message = EmailMessage(
             subject='Contract payment notification',
@@ -349,8 +444,14 @@ def __send_email_notify_payment(code, name, contact_name, amount_due, payment_re
             from_email=settings.EMAIL_HOST_USER,
             to=[email],
         )
-        pdf_file = generate_report_for_employee_declaration(code,policy_holder_id,contract_approved_date,amount_due)
+        # Attach the PDF file
+        pdf_file = generate_report_for_employee_declaration(contract_id, code, policy_holder_id, contract_approved_date, amount_due)
         email_message.attach('payment_receipt.pdf', pdf_file, 'application/pdf')
+        # Attach the Excel file
+        excel_file =  send_contract(contract_id)
+        email_message.attach('employee_declaration.xlsx', excel_file,
+                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        # Send the email
         email_message.send()
         return True
     except BadHeaderError:

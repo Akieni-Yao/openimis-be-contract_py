@@ -5,7 +5,7 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
-from payment.payment_utils import payment_code_generation
+from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
 
 from django.db.models.query import Q
@@ -30,6 +30,8 @@ from policy.models import Policy
 from payment.models import Payment, PaymentDetail
 from payment.services import update_or_create_payment
 from insuree.models import Insuree
+from datetime import datetime
+from django.utils import timezone
 
 from dateutil.relativedelta import relativedelta
 
@@ -280,7 +282,9 @@ class Contract(object):
             if not self.user.has_perms(ContractConfig.gql_mutation_approve_ask_for_change_contract_perms):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
+            logger.info(f"contract service approve : contract_id = {contract_id}")
             contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
+            logger.info(f"contract service approve : contract_to_approve = {contract_to_approve.id}")
             state_right = self.__check_rights_by_status(contract_to_approve.state)
             # check if we can submit
             if state_right != "approvable":
@@ -291,6 +295,13 @@ class Contract(object):
                 contract_to_approve.amendment,
                 contract_to_approve.date_valid_from,
             )
+            
+            # Adding previous details in current contract 
+            prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).exclude(id=contract_to_approve.id).order_by('-date_created')
+            if len(prev_contract) > 0:
+                logger.info(f"contract service approve : prev_contract = {prev_contract[0]}")
+                contract_to_approve.parent=prev_contract[0]
+
             # send signal - approve contract
             ccpd_service = ContractContributionPlanDetails(user=self.user)
             payment_service = PaymentService(user=self.user)
@@ -301,11 +312,12 @@ class Contract(object):
                 contract_details_list=contract_details_list,
                 service_object=self,
                 payment_service=payment_service,
-                ccpd_service=ccpd_service
+                ccpd_service=ccpd_service,
             )
             # ccpd.create_contribution(contract_contribution_plan_details)
             dict_representation = {}
             id_contract_approved = f"{contract_to_approve.id}"
+            logger.info(f"contract service approve : id_contract_approved = {id_contract_approved}")
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
@@ -745,7 +757,8 @@ class ContractContributionPlanDetails(object):
                     rc = run_calculation_rules(ccpd, "create", self.user)
                     if rc:
                         calculated_amount = rc[0][1] if rc[0][1] not in [None, False] else 0
-                        total_amount += calculated_amount
+                        total_amount = float(total_amount)
+                        total_amount += float(calculated_amount)
                     ccpd_record = model_to_dict(ccpd)
                     ccpd_record["calculated_amount"] = calculated_amount
                     if contract_contribution_plan_details["save"]:
@@ -793,6 +806,7 @@ class ContractContributionPlanDetails(object):
            cp - contribution plan
            return ccpd list and total amount
         """
+        logger.info("__append_contract_cpd_to_list : --------- Start ---------")
         from core import datetime, datetimedelta
         # TODO - catch grace period from calculation rule if is defined
         #  grace_period = cp.calculation_rule etc
@@ -814,22 +828,32 @@ class ContractContributionPlanDetails(object):
         else:
             # there is additional contribution - we have to calculate/recalculate
             total_amount = total_amount - calculated_amount
+            logger.info(f"__append_contract_cpd_to_list : total_amount = {total_amount}")
             for ccpd_result in ccpd_results:
+                logger.info(f"__append_contract_cpd_to_list : ccpd_result = {ccpd_result}")
                 length_ccpd = float((ccpd_result.date_valid_to.year - ccpd_result.date_valid_from.year) * 12 \
                                     + (ccpd_result.date_valid_to.month - ccpd_result.date_valid_from.month))
+                logger.info(f"__append_contract_cpd_to_list : length_ccpd = {length_ccpd}")
                 periodicity = float(ccpd_result.contribution_plan.periodicity)
+                logger.info(f"__append_contract_cpd_to_list : periodicity = {periodicity}")
                 # time part of split as a fraction to count contribution value for that split period properly
                 part_time_period = length_ccpd / periodicity
+                logger.info(f"__append_contract_cpd_to_list : part_time_period = {part_time_period}")
                 # rc - result calculation
                 rc = run_calculation_rules(ccpd, "update", self.user)
                 if rc:
-                    calculated_amount = rc[0][1] * part_time_period if rc[0][1] not in [None, False] else 0
+                    logger.info(f"__append_contract_cpd_to_list : run_calculation_rules = {rc}")
+                    calculated_amount = float(rc[0][1]) * float(part_time_period) if rc[0][1] not in [None, False] else 0
+                    total_amount = float(total_amount)
                     total_amount += calculated_amount
+                    logger.info(f"__append_contract_cpd_to_list : for calculated_amount = {calculated_amount}")
+                    logger.info(f"__append_contract_cpd_to_list : for total_amount = {total_amount}")
                 ccpd_record = model_to_dict(ccpd_result)
                 ccpd_record["calculated_amount"] = calculated_amount
                 uuid_string = f"{ccpd_result.id}"
                 ccpd_record['id'], ccpd_record['uuid'] = (uuid_string, uuid_string)
                 ccpd_list.append(ccpd_record)
+        logger.info("__append_contract_cpd_to_list : --------- End ---------")
         return ccpd_list, total_amount, ccpd_record
 
     @check_authentication
@@ -888,6 +912,10 @@ class PaymentService(object):
                     p.payment_code = payment_code
                     print(p.payment_code)
                     p.save()
+                    try:
+                        create_paymentcode_openkmfolder(payment_code)
+                    except Exception as e:
+                        pass
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)

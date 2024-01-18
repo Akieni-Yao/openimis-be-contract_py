@@ -1,7 +1,12 @@
+from calendar import monthrange
+from datetime import timedelta
+
 import graphene
 import graphene_django_optimizer as gql_optimizer
 
 from django.db.models import Q
+
+from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 from .services import check_unique_code
 from core.gql_queries import ValidationMessageGQLType
 from core.schema import signal_mutation_module_before_mutating, OrderedDjangoFilterConnectionField
@@ -23,7 +28,6 @@ from contract.utils import filter_amount_contract
 
 
 class Query(graphene.ObjectType):
-
     contract = OrderedDjangoFilterConnectionField(
         ContractGQLType,
         client_mutation_id=graphene.String(),
@@ -54,6 +58,47 @@ class Query(graphene.ObjectType):
         contract_code=graphene.String(required=True),
         description="Check that the specified contract code is unique."
     )
+
+    validate_enddate_by_periodicity = graphene.String(
+        start_date=graphene.Date(required=True),
+        policyholder_id=graphene.UUID(required=True)
+    )
+
+    def resolve_validate_enddate_by_periodicity(self, info, start_date, policyholder_id):
+        try:
+            policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
+            if policy_holder:
+                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
+                                                                     is_deleted=False).first()
+                contract = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False) \
+                    .order_by('-date_valid_to') \
+                    .first()
+
+                if contract:
+                    contract_last_date = contract.date_valid_to
+                    # Check for gap between start_date and contract_last_date
+                    if start_date != (contract_last_date + timedelta(days=1)).date():
+                        return "Please create a contract for the previous month first"
+
+                if ph_cpb:
+                    contribution_plan_bundle = ph_cpb.contribution_plan_bundle
+                    periodicity = contribution_plan_bundle.periodicity
+
+                    if periodicity is not None:
+                        # Identify the days of the current month
+                        _, last_day_of_month = monthrange(start_date.year, start_date.month)
+
+                        end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
+                        return str(end_date)
+                    else:
+                        return "Periodicity is not defined for this Contribution Plan Bundle"
+                else:
+                    return "Contribution Plan Bundle not found for this Policy Holder"
+            else:
+                return "Policy Holder not found"
+        except Exception as e:
+            print(f"Error: {e}")
+            return str(e)
 
     def resolve_validate_contract_code(self, info, **kwargs):
         if not info.context.user.has_perms(ContractConfig.gql_query_contract_perms):
