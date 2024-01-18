@@ -84,10 +84,19 @@ def on_contract_approve_signal(sender, **kwargs):
     last_date_day_to_create_contract = last_date_to_create_contract.day
     
     contract_create_date = contract_to_approve.date_created.date()
+    contract_valid_from_date = contract_to_approve.date_valid_from.date()
+    is_future_contract = False
+    if contract_valid_from_date.year > contract_create_date.year:
+        print("is_future_contract  =  True")
+        is_future_contract = True
+    elif contract_valid_from_date.year == contract_create_date.year and contract_valid_from_date.month > contract_create_date.month:
+        print("is_future_contract  =  True")
+        is_future_contract = True
+
     contract_create_date_day = contract_create_date.day
     contract_create_date_month = contract_create_date.month
     contract_create_date_year = contract_create_date.year
-    
+
     logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
     logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
     logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
@@ -131,7 +140,7 @@ def on_contract_approve_signal(sender, **kwargs):
     logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
     logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
     
-    if start_date_to_create_contract < contract_create_date and contract_create_date > last_date_to_create_contract:
+    if start_date_to_create_contract < contract_create_date and contract_create_date > last_date_to_create_contract and is_future_contract is False:
         logger.info("on_contract_approve_signal : contract penalty applied ---------------------")
         contract_to_approve.penalty_raised = True
         contract_to_approve.penalty_raised_date = now

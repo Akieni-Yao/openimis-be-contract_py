@@ -297,10 +297,10 @@ class Contract(object):
             )
             
             # Adding previous details in current contract 
-            prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).order_by('-date_created')
-            if len(prev_contract) > 2:
-                logger.info(f"contract service approve : prev_contract = {prev_contract[1]}")
-                contract_to_approve.parent=prev_contract[1]
+            prev_contract = ContractModel.objects.filter(policy_holder__id=contract_to_approve.policy_holder.id, is_deleted=False).exclude(id=contract_to_approve.id).order_by('-date_created')
+            if len(prev_contract) > 0:
+                logger.info(f"contract service approve : prev_contract = {prev_contract[0]}")
+                contract_to_approve.parent=prev_contract[0]
 
             # send signal - approve contract
             ccpd_service = ContractContributionPlanDetails(user=self.user)
