@@ -775,6 +775,7 @@ class ContractContributionPlanDetails(object):
                     if "id" not in ccpd_record:
                         ccpd_list.append(ccpd_record)
             if amendment > 0:
+                amendment = float(amendment)
                 # get the payment from the previous version of the contract
                 contract_detail_id = contract_contribution_plan_details["contract_details"][0]["id"]
                 cd = ContractDetailsModel.objects.get(id=contract_detail_id)
@@ -827,7 +828,7 @@ class ContractContributionPlanDetails(object):
         # case 2 - 2 contributions with 2 policies
         else:
             # there is additional contribution - we have to calculate/recalculate
-            total_amount = total_amount - calculated_amount
+            total_amount = float(total_amount) - float(calculated_amount)
             logger.info(f"__append_contract_cpd_to_list : total_amount = {total_amount}")
             for ccpd_result in ccpd_results:
                 logger.info(f"__append_contract_cpd_to_list : ccpd_result = {ccpd_result}")
