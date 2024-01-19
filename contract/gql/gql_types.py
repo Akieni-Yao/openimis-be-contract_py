@@ -1,4 +1,6 @@
 import graphene
+
+from contribution_plan.models import ContributionPlanBundleDetails
 from core import prefix_filterset, ExtendedConnection
 from graphene_django import DjangoObjectType
 from contract.models import Contract, ContractDetails, ContractContributionPlanDetails, \
@@ -7,10 +9,10 @@ from insuree.schema import InsureeGQLType
 from contribution_plan.gql.gql_types import ContributionPlanGQLType, ContributionPlanBundleGQLType
 from contribution.gql_queries import PremiumGQLType
 from policyholder.gql.gql_types import PolicyHolderGQLType
+from policyholder.models import PolicyHolderInsuree
 
 
 class ContractGQLType(DjangoObjectType):
-
     class Meta:
         model = Contract
         interfaces = (graphene.relay.Node,)
@@ -41,6 +43,7 @@ class ContractGQLType(DjangoObjectType):
 
 
 class ContractDetailsGQLType(DjangoObjectType):
+    custom_field = graphene.String()
 
     class Meta:
         model = ContractDetails
@@ -62,9 +65,49 @@ class ContractDetailsGQLType(DjangoObjectType):
         def get_queryset(cls, queryset, info):
             return ContractDetails.get_queryset(queryset, info)
 
+    def resolve_custom_field(self, info):
+        try:
+            cpb = self.contribution_plan_bundle
+            cpbd = ContributionPlanBundleDetails.objects.filter(
+                contribution_plan_bundle=cpb,
+                is_deleted=False
+            ).first()
+            conti_plan = cpbd.contribution_plan if cpbd else None
+            if conti_plan and conti_plan.json_ext:
+                json_data = conti_plan.json_ext
+                calculation_rule = json_data.get('calculation_rule')
+                if calculation_rule:
+                    ercp = float(calculation_rule.get('employerContribution', 0))
+                    eecp = float(calculation_rule.get('employeeContribution', 0))
+
+            insuree = self.insuree
+            policy_holder = self.contract.policy_holder
+            phn_json = PolicyHolderInsuree.objects.filter(
+                insuree_id=insuree.id,
+                policy_holder__code=policy_holder.code,
+                policy_holder__date_valid_to__isnull=True,
+                policy_holder__is_deleted=False,
+                date_valid_to__isnull=True,
+                is_deleted=False
+            ).first()
+
+            if phn_json and phn_json.json_ext:
+                json_data = phn_json.json_ext
+                ei = float(json_data.get('calculation_rule', {}).get('income', 0))
+            employer_contribution = round(ei * ercp / 100, 2) if ercp and ei is not None else 0
+            salary_share = round(ei * eecp / 100, 2) if eecp and ei is not None else 0
+            total = salary_share + employer_contribution
+            response = {
+                'total': total,
+                'employerContribution': employer_contribution,
+                'salaryShare': salary_share,
+            }
+            return response
+        except Exception as e:
+            return None
+
 
 class ContractContributionPlanDetailsGQLType(DjangoObjectType):
-
     class Meta:
         model = ContractContributionPlanDetails
         interfaces = (graphene.relay.Node,)

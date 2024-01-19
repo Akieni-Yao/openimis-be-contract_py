@@ -32,7 +32,23 @@ class Contract(core_models.HistoryBusinessModel):
     state = models.SmallIntegerField(db_column='State', blank=True, null=True)
     payment_reference = models.CharField(db_column='PaymentReference', max_length=255, blank=True, null=True)
     amendment = models.IntegerField(db_column='Amendment', blank=False, null=False, default=0)
+    
+    penalty_raised = models.BooleanField(db_column='PenaltyRaised', default=False)
+    penalty_raised_date = fields.DateField(db_column='PenaltyRaisedDate', null=True)
+    # penalty_amount = models.FloatField(db_column='PenaltyAmount', null=True)
+    # penalty_paid = models.BooleanField(db_column='PenaltyPaid', null=True)
+    # penalty_paid_date = fields.DateField(db_column='PenaltyPaidDate', null=True)
+    penalty_waive_off_contract = models.BooleanField(db_column='PenaltyWaiveOffContract', default=False)
+    penalty_waive_off_payment = models.BooleanField(db_column='PenaltyWaiveOffPayment', default=False)
+    penalty_waive_off_contract_reason = models.CharField(db_column='PenaltyWaiveOffContractReason', max_length=255, null=True)
+    penalty_waive_off_payment_reason = models.CharField(db_column='PenaltyWaiveOffPaymentReason', max_length=255, null=True)
+    parent = models.ForeignKey('self', on_delete=models.deletion.DO_NOTHING, db_column="Parent", null=True)
+    # parent_contract_pending = models.BooleanField(db_column='ParentPaymentPending', default=False)
+    # parent_penalty_paid = models.BooleanField(db_column='ParentPaymentPaid', null=True)
+    gap_from_parent = models.IntegerField(db_column='GapFromParent', null=True)
 
+    # total_amount = models.FloatField(db_column='TotalAmount', null=True)
+    
     objects = ContractManager()
 
     @property
