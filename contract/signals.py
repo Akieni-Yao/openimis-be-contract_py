@@ -74,77 +74,79 @@ def on_contract_approve_signal(sender, **kwargs):
     
     logger.info(f"on_contract_approve_signal : product_config = {ccpdm.contribution_plan.benefit_plan.config_data}")
     
-    start_date_to_create_contract = product_config.get("declarationStartDate")
-    last_date_to_create_contract = product_config.get("declarationEndDate")
-    
-    start_date_to_create_contract = datetime.datetime.strptime(start_date_to_create_contract, "%Y-%m-%d").date()
-    last_date_to_create_contract = datetime.datetime.strptime(last_date_to_create_contract, "%Y-%m-%d").date()
-    
-    start_date_day_to_create_contract = start_date_to_create_contract.day
-    last_date_day_to_create_contract = last_date_to_create_contract.day
-    
-    contract_create_date = contract_to_approve.date_created.date()
-    contract_valid_from_date = contract_to_approve.date_valid_from.date()
-    is_future_contract = False
-    if contract_valid_from_date.year > contract_create_date.year:
-        print("is_future_contract  =  True")
-        is_future_contract = True
-    elif contract_valid_from_date.year == contract_create_date.year and contract_valid_from_date.month > contract_create_date.month:
-        print("is_future_contract  =  True")
-        is_future_contract = True
+    if product_config:
+        start_date_to_create_contract = product_config.get("declarationStartDate", None)
+        last_date_to_create_contract = product_config.get("declarationEndDate", None)
+        
+        if start_date_to_create_contract and last_date_to_create_contract:
+            start_date_to_create_contract = datetime.datetime.strptime(start_date_to_create_contract, "%Y-%m-%d").date()
+            last_date_to_create_contract = datetime.datetime.strptime(last_date_to_create_contract, "%Y-%m-%d").date()
+            
+            start_date_day_to_create_contract = start_date_to_create_contract.day
+            last_date_day_to_create_contract = last_date_to_create_contract.day
+            
+            contract_create_date = contract_to_approve.date_created.date()
+            contract_valid_from_date = contract_to_approve.date_valid_from.date()
+            is_future_contract = False
+            if contract_valid_from_date.year > contract_create_date.year:
+                print("is_future_contract  =  True")
+                is_future_contract = True
+            elif contract_valid_from_date.year == contract_create_date.year and contract_valid_from_date.month > contract_create_date.month:
+                print("is_future_contract  =  True")
+                is_future_contract = True
 
-    contract_create_date_day = contract_create_date.day
-    contract_create_date_month = contract_create_date.month
-    contract_create_date_year = contract_create_date.year
+            contract_create_date_day = contract_create_date.day
+            contract_create_date_month = contract_create_date.month
+            contract_create_date_year = contract_create_date.year
 
-    logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
-    logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
-    logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
-    
-    if start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
-        logger.info("on_contract_approve_signal : date day condition 1 ---------------------")
-        start_date_to_create_contract = start_date_to_create_contract.replace(
-            day=start_date_day_to_create_contract, 
-            month=contract_create_date_month, year=contract_create_date_year)
-        last_date_to_create_contract = last_date_to_create_contract.replace(
-            day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
-    elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
-        logger.info("on_contract_approve_signal : date day condition 2 ---------------------")
-        start_date_to_create_contract = start_date_to_create_contract.replace(
-            day=start_date_day_to_create_contract, 
-            month=contract_create_date_month, year=contract_create_date_year)
-        last_date_to_create_contract = last_date_to_create_contract.replace(
-            day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
-    elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
-        logger.info("on_contract_approve_signal : date day condition 3 ---------------------")
-        start_date_to_create_contract = start_date_to_create_contract.replace(
-            day=start_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
-        if contract_create_date_month == 12:
-            contract_create_date_month = 0
-            contract_create_date_year += 1
-        last_date_to_create_contract = last_date_to_create_contract.replace(
-            day=last_date_day_to_create_contract, month=contract_create_date_month + 1, year=contract_create_date_year)
-    elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
-        logger.info("on_contract_approve_signal : date day condition 4 ---------------------")
-        last_date_to_create_contract = last_date_to_create_contract.replace(
-            day=last_date_day_to_create_contract, 
-            month=contract_create_date_month, year=contract_create_date_year)
-        if contract_create_date_month == 1:
-            contract_create_date_month = 13
-            contract_create_date_year -= 1
-        start_date_to_create_contract = start_date_to_create_contract.replace(
-            day=start_date_day_to_create_contract, 
-            month=contract_create_date_month - 1, year=contract_create_date_year)
+            logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
+            logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
+            logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
+            
+            if start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+                logger.info("on_contract_approve_signal : date day condition 1 ---------------------")
+                start_date_to_create_contract = start_date_to_create_contract.replace(
+                    day=start_date_day_to_create_contract, 
+                    month=contract_create_date_month, year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(
+                    day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+            elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+                logger.info("on_contract_approve_signal : date day condition 2 ---------------------")
+                start_date_to_create_contract = start_date_to_create_contract.replace(
+                    day=start_date_day_to_create_contract, 
+                    month=contract_create_date_month, year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(
+                    day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+            elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
+                logger.info("on_contract_approve_signal : date day condition 3 ---------------------")
+                start_date_to_create_contract = start_date_to_create_contract.replace(
+                    day=start_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+                if contract_create_date_month == 12:
+                    contract_create_date_month = 0
+                    contract_create_date_year += 1
+                last_date_to_create_contract = last_date_to_create_contract.replace(
+                    day=last_date_day_to_create_contract, month=contract_create_date_month + 1, year=contract_create_date_year)
+            elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
+                logger.info("on_contract_approve_signal : date day condition 4 ---------------------")
+                last_date_to_create_contract = last_date_to_create_contract.replace(
+                    day=last_date_day_to_create_contract, 
+                    month=contract_create_date_month, year=contract_create_date_year)
+                if contract_create_date_month == 1:
+                    contract_create_date_month = 13
+                    contract_create_date_year -= 1
+                start_date_to_create_contract = start_date_to_create_contract.replace(
+                    day=start_date_day_to_create_contract, 
+                    month=contract_create_date_month - 1, year=contract_create_date_year)
 
-    logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
-    logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
-    logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
-    
-    if start_date_to_create_contract < contract_create_date and contract_create_date > last_date_to_create_contract and is_future_contract is False:
-        logger.info("on_contract_approve_signal : contract penalty applied ---------------------")
-        contract_to_approve.penalty_raised = True
-        contract_to_approve.penalty_raised_date = now
-    
+            logger.info(f"on_contract_approve_signal : start_date_to_create_contract = {start_date_to_create_contract}")
+            logger.info(f"on_contract_approve_signal : last_date_to_create_contract = {last_date_to_create_contract}")
+            logger.info(f"on_contract_approve_signal : contract_create_date = {contract_create_date}")
+            
+            if start_date_to_create_contract < contract_create_date and contract_create_date > last_date_to_create_contract and is_future_contract is False:
+                logger.info("on_contract_approve_signal : contract penalty applied ---------------------")
+                contract_to_approve.penalty_raised = True
+                contract_to_approve.penalty_raised_date = now
+        
     result_payment = __create_payment(contract_to_approve, payment_service, contract_contribution_plan_details, product_config)
     # STATE_EXECUTABLE
     contract_to_approve.date_approved = now
