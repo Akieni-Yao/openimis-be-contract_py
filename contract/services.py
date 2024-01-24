@@ -643,6 +643,7 @@ class ContractContributionPlanDetails(object):
             date_valid_from=ccpd.date_valid_from,
             date_valid_to=ccpd.date_valid_to,
             product=ccpd.contribution_plan.benefit_plan,
+            ccpd=ccpd,
         )
         return self.__create_contribution_from_policy(ccpd, policies)
 
@@ -664,7 +665,7 @@ class ContractContributionPlanDetails(object):
             ccpd.save(username=self.user.username)
             return [ccpd_new, ccpd]
 
-    def __get_policy(self, insuree, date_valid_from, date_valid_to, product):
+    def __get_policy(self, insuree, date_valid_from, date_valid_to, product, ccpd):
         from core import datetime
         policy_output = []
         # get all policies related to the product and insuree
@@ -695,24 +696,69 @@ class ContractContributionPlanDetails(object):
 
         for data in missing_coverage:
             policy_created, last_date_covered = self.create_contract_details_policies(insuree, product, data['start'],
-                                                                                      data['stop'])
+                                                                                      data['stop'], ccpd)
             if policy_created is not None and len(policy_created) > 0:
                 policy_output += policy_created
 
         # now we create new policy
         while last_date_covered < date_valid_to:
             policy_created, last_date_covered = self.create_contract_details_policies(insuree, product,
-                                                                                      last_date_covered, date_valid_to)
+                                                                                      last_date_covered, date_valid_to, ccpd)
             if policy_created is not None and len(policy_created) > 0:
                 policy_output += policy_created
         return policy_output
 
-    def create_contract_details_policies(self, insuree, product, last_date_covered, date_valid_to):
+    def create_contract_details_policies(self, insuree, product, last_date_covered, date_valid_to, ccpd):
         # create policy for insuree family
         # TODO Policy with status - new open=32 in policy-be_py module
+        logger.info("create_contract_details_policies : --------- Start ---------")
         policy_output = []
+        
+        logger.info(f"create_contract_details_policies : product.insurance_period : {product.insurance_period}")
+        logger.info(f"create_contract_details_policies : contract.parent : {ccpd.contract_details.contract.parent}")
+        logger.info(f"create_contract_details_policies : BU : last_date_covered : {last_date_covered}")
+        
+        print("product.insurance_period : ", product.insurance_period)
+        print("contract.parent : ", ccpd.contract_details.contract.parent)
+        print("BU : last_date_covered : ", last_date_covered)
+        
         while last_date_covered < date_valid_to:
             expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+            if product.insurance_period == 1:
+                desired_start_policy_day = 6
+                desired_month_gap_policy_contract = 2
+                
+                last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
+                last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                
+                expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+                expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+            
+            if product.insurance_period == 3:
+                desired_start_policy_day = 6
+                if ccpd.contract_details.contract.parent:
+                    desired_month_gap_policy_contract = 1
+                    
+                    last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
+                    last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                    
+                    expiry_date = last_date_covered + relativedelta(months=product.insurance_period+1)
+                    expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+                else:
+                    desired_month_gap_policy_contract = 3
+                    
+                    last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
+                    last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                    
+                    expiry_date = last_date_covered + relativedelta(months=product.insurance_period-1)
+                    expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+                    
+            logger.info(f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}")
+            logger.info(f"create_contract_details_policies : expiry_date : {expiry_date}")
+            
+            print("AU : last_date_covered : ", last_date_covered)
+            print("expiry_date : ", expiry_date)
+            
             cur_policy = Policy.objects.create(
                 **{
                     "family": insuree.family,
@@ -730,6 +776,7 @@ class ContractContributionPlanDetails(object):
             )
             last_date_covered = expiry_date
             policy_output.append(cur_policy)
+        logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
 
     @check_authentication
