@@ -713,52 +713,65 @@ class ContractContributionPlanDetails(object):
         # TODO Policy with status - new open=32 in policy-be_py module
         logger.info("create_contract_details_policies : --------- Start ---------")
         policy_output = []
-        
+
         logger.info(f"create_contract_details_policies : product.insurance_period : {product.insurance_period}")
         logger.info(f"create_contract_details_policies : contract.parent : {ccpd.contract_details.contract.parent}")
         logger.info(f"create_contract_details_policies : BU : last_date_covered : {last_date_covered}")
-        
+
         print("product.insurance_period : ", product.insurance_period)
         print("contract.parent : ", ccpd.contract_details.contract.parent)
         print("BU : last_date_covered : ", last_date_covered)
-        
+
         while last_date_covered < date_valid_to:
             expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+            # Changing start date and end date of policy with insurance period 1 as per CAMU Requirement
             if product.insurance_period == 1:
+                # desired_start_policy_day is a policy start day in month
                 desired_start_policy_day = 6
+                # desired_month_gap_policy_contract is a gap of policy from contract
                 desired_month_gap_policy_contract = 2
-                
+
+                # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
                 last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
-                
+
+                # expiry_date is the policy End date 
                 expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
                 expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
-            
+
+            # Changing start date and end date of policy with insurance period 3 as per CAMU Requirement
             if product.insurance_period == 3:
+                # desired_start_policy_day is a policy start day in month
                 desired_start_policy_day = 6
                 if ccpd.contract_details.contract.parent:
+                    # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 1
-                    
+
+                    # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
                     last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
-                    
+
+                    # expiry_date is the policy End date 
                     expiry_date = last_date_covered + relativedelta(months=product.insurance_period+1)
                     expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
                 else:
+                    # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 3
-                    
+
+                    # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
                     last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
-                    
+
+                    # expiry_date is the policy End date 
                     expiry_date = last_date_covered + relativedelta(months=product.insurance_period-1)
                     expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
-                    
+
             logger.info(f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}")
             logger.info(f"create_contract_details_policies : expiry_date : {expiry_date}")
             
             print("AU : last_date_covered : ", last_date_covered)
             print("expiry_date : ", expiry_date)
-            
+
             cur_policy = Policy.objects.create(
                 **{
                     "family": insuree.family,
