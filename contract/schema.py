@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import graphene
 import graphene_django_optimizer as gql_optimizer
+from dateutil.relativedelta import relativedelta
 
 from django.db.models import Q
 
@@ -68,8 +69,7 @@ class Query(graphene.ObjectType):
         try:
             policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
             if policy_holder:
-                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
-                                                                     is_deleted=False).first()
+                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder, is_deleted=False).first()
                 contract = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False) \
                     .order_by('-date_valid_to') \
                     .first()
@@ -85,11 +85,16 @@ class Query(graphene.ObjectType):
                     periodicity = contribution_plan_bundle.periodicity
 
                     if periodicity is not None:
-                        # Identify the days of the current month
-                        _, last_day_of_month = monthrange(start_date.year, start_date.month)
+                        if 1 <= periodicity <= 12:
+                            if periodicity == 1:
+                                _, last_day_of_month = monthrange(start_date.year, start_date.month)
+                                end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
+                            else:
+                                end_date = start_date + relativedelta(months=periodicity)
 
-                        end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
-                        return str(end_date)
+                            return str(end_date)
+                        else:
+                            return f"Invalid periodicity value: {periodicity}"
                     else:
                         return "Periodicity is not defined for this Contribution Plan Bundle"
                 else:
