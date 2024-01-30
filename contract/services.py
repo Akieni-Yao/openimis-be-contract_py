@@ -666,6 +666,8 @@ class ContractContributionPlanDetails(object):
             return [ccpd_new, ccpd]
 
     def __get_policy(self, insuree, date_valid_from, date_valid_to, product, ccpd):
+        logger.info(f"__get_policy : date_valid_from : {date_valid_from}")
+        logger.info(f"__get_policy : date_valid_to : {date_valid_to}")
         from core import datetime
         policy_output = []
         # get all policies related to the product and insuree
@@ -687,14 +689,16 @@ class ContractContributionPlanDetails(object):
             if cur_policy.start_date <= last_date_covered:
                 # Really unlikely we might create a policy that stop at curPolicy.startDate
                 # (start at curPolicy.startDate - product length) and add it to policy_output
-                last_date_covered = cur_policy.expiry_date
+                # last_date_covered = cur_policy.expiry_date #commented by ajay for new requirement 
                 policy_output.append(cur_policy)
             elif cur_policy.expiry_date <= date_valid_to:
-                missing_coverage.append({'start': cur_policy.start_date, 'stop': last_date_covered})
-                last_date_covered = cur_policy.expiry_date
+                # missing_coverage.append({'start': cur_policy.start_date, 'stop': last_date_covered}) #commented by ajay for new requirement 
+                # last_date_covered = cur_policy.expiry_date #commented by ajay for new requirement 
                 policy_output.append(cur_policy)
 
         for data in missing_coverage:
+            logger.info(f"__get_policy : data['start'] : {data['start']}")
+            logger.info(f"__get_policy : data['stop'] : {data['stop']}")
             policy_created, last_date_covered = self.create_contract_details_policies(insuree, product, data['start'],
                                                                                       data['stop'], ccpd)
             if policy_created is not None and len(policy_created) > 0:
@@ -702,6 +706,8 @@ class ContractContributionPlanDetails(object):
 
         # now we create new policy
         while last_date_covered < date_valid_to:
+            logger.info(f"__get_policy : last_date_covered : {last_date_covered}")
+            logger.info(f"__get_policy : date_valid_to : {date_valid_to}")
             policy_created, last_date_covered = self.create_contract_details_policies(insuree, product,
                                                                                       last_date_covered, date_valid_to, ccpd)
             if policy_created is not None and len(policy_created) > 0:
