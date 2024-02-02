@@ -91,7 +91,7 @@ class Query(graphene.ObjectType):
                                 end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
                             else:
                                 end_date = start_date + relativedelta(months=periodicity)
-
+                                end_date -= timedelta(days=1)
                             return str(end_date)
                         else:
                             return f"Invalid periodicity value: {periodicity}"
