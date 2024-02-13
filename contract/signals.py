@@ -20,6 +20,7 @@ from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
+import calendar
 
 from .views import multi_contract, send_contract
 
@@ -108,15 +109,27 @@ def on_contract_approve_signal(sender, **kwargs):
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
-                last_date_to_create_contract = last_date_to_create_contract.replace(
-                    day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+                # last_date_to_create_contract = last_date_to_create_contract.replace(
+                #     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(month=contract_create_date_month)
+                _, last_day = calendar.monthrange(last_date_to_create_contract.year, last_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
+                last_date_to_create_contract = last_date_to_create_contract.replace(day=last_date_day_to_create_contract)
             elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
                 logger.info("on_contract_approve_signal : date day condition 2 ---------------------")
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
-                last_date_to_create_contract = last_date_to_create_contract.replace(
-                    day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+                # last_date_to_create_contract = last_date_to_create_contract.replace(
+                #     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(month=contract_create_date_month)
+                _, last_day = calendar.monthrange(last_date_to_create_contract.year, last_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
+                last_date_to_create_contract = last_date_to_create_contract.replace(day=last_date_day_to_create_contract)
             elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
                 logger.info("on_contract_approve_signal : date day condition 3 ---------------------")
                 start_date_to_create_contract = start_date_to_create_contract.replace(
@@ -124,8 +137,14 @@ def on_contract_approve_signal(sender, **kwargs):
                 if contract_create_date_month == 12:
                     contract_create_date_month = 0
                     contract_create_date_year += 1
-                last_date_to_create_contract = last_date_to_create_contract.replace(
-                    day=last_date_day_to_create_contract, month=contract_create_date_month + 1, year=contract_create_date_year)
+                # last_date_to_create_contract = last_date_to_create_contract.replace(
+                #     day=last_date_day_to_create_contract, month=contract_create_date_month + 1, year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(year=contract_create_date_year)
+                last_date_to_create_contract = last_date_to_create_contract.replace(month=contract_create_date_month + 1)
+                _, last_day = calendar.monthrange(last_date_to_create_contract.year, last_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
+                last_date_to_create_contract = last_date_to_create_contract.replace(day=last_date_day_to_create_contract)
             elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
                 logger.info("on_contract_approve_signal : date day condition 4 ---------------------")
                 last_date_to_create_contract = last_date_to_create_contract.replace(
