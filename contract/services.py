@@ -730,10 +730,17 @@ class ContractContributionPlanDetails(object):
 
         while last_date_covered < date_valid_to:
             expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+            product_config = product.config_data
             # Changing start date and end date of policy with insurance period 1 as per CAMU Requirement
             if product.insurance_period == 1:
                 # desired_start_policy_day is a policy start day in month
-                desired_start_policy_day = 6
+                desired_start_policy_day = 6 
+                if product_config:
+                    last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                    if last_date_to_create_payment:
+                        last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                        last_date_day_to_create_payment = last_date_to_create_payment.day
+                        desired_start_policy_day = last_date_day_to_create_payment + 1
                 # desired_month_gap_policy_contract is a gap of policy from contract
                 desired_month_gap_policy_contract = 2
 

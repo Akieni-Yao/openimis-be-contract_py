@@ -20,6 +20,7 @@ from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
+import calendar
 
 from .views import multi_contract, send_contract
 
@@ -108,6 +109,9 @@ def on_contract_approve_signal(sender, **kwargs):
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
+                _, last_day = calendar.monthrange(start_date_to_create_contract.year, start_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
                 last_date_to_create_contract = last_date_to_create_contract.replace(
                     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
             elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
@@ -115,6 +119,9 @@ def on_contract_approve_signal(sender, **kwargs):
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
+                _, last_day = calendar.monthrange(start_date_to_create_contract.year, start_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
                 last_date_to_create_contract = last_date_to_create_contract.replace(
                     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
             elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
