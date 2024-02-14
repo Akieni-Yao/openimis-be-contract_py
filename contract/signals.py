@@ -454,7 +454,7 @@ def __send_email_notify_payment(contract_id,code, name, contact_name, amount_due
             to=[email],
         )
         # Attach the PDF file
-        pdf_file = generate_report_for_employee_declaration(contract_id, code, policy_holder_id, contract_approved_date, amount_due)
+        pdf_file = generate_report_for_employee_declaration(contract_id, code, policy_holder_id, contract_approved_date)
         email_message.attach('payment_receipt.pdf', pdf_file, 'application/pdf')
         # Attach the Excel file
         excel_file =  send_contract(contract_id)

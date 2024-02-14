@@ -1,4 +1,6 @@
 import json
+import logging
+
 from django.http import Http404
 
 from contract.models import Contract
@@ -11,12 +13,24 @@ from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 
 
-def generate_report_for_employee_declaration(contract_id, code, uuid, contract_approved_date, amount_due):
+def generate_report_for_employee_declaration(contract_id, code, uuid, contract_approved_date):
     try:
+        logging.info("Generating report for employee declaration")
         total_amount = 0
+        expected_amount = 0
+        overdue_amount = 0
+        late_declaration_penalty = 0
+        late_payment_penalty = 0
         payment = Payment.objects.filter(contract__id=contract_id).first()
         if payment:
             total_amount = payment.total_amount
+            expected_amount = payment.expected_amount
+            overdue_amount = payment.parent_pending_payment
+            late_declaration_penalty = payment.contract_penalty_amount
+            late_payment_penalty = payment.penalty_amount if payment.penalty_amount else 0.0
+            logging.info("Payment details retrieved successfully")
+        # payment_due_date =
+        declaration_month = str(contract_approved_date.strftime('%b').upper())
         policyholder = PolicyHolder.objects.get(uuid=uuid)
         ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policyholder, is_deleted=False).first()
         json_ext_data = policyholder.json_ext['jsonExt'] if policyholder.json_ext else {}
@@ -49,16 +63,17 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
         employer_contribution = round(ei * ercp / 100, 2) if ercp and ei is not None else 0
         salary_share = round(ei * eecp / 100, 2) if eecp and ei is not None else 0
         total = salary_share + employer_contribution
+        logging.info("Data preparation successful")
         data = {
             "data": {
                 "rib": "",
                 "contract_number": str(code) if code else '',
-                "creation_date":  converted_creation_date if converted_creation_date else '',
+                "creation_date": converted_creation_date if converted_creation_date else '',
                 "camu_code": policyholder.code if policyholder.code else '',
                 "activity_code": str(converted_activity_code) if converted_activity_code else '',
                 "niu": policyholder.json_ext['jsonExt']['niu'] if hasattr(policyholder,
-                                                                               'json_ext') and 'jsonExt' in policyholder.json_ext and 'niu' in
-                                                                       policyholder.json_ext['jsonExt'] else "" ,
+                                                                          'json_ext') and 'jsonExt' in policyholder.json_ext and 'niu' in
+                                                                  policyholder.json_ext['jsonExt'] else "",
                 "address": address_data if address_data else '',
                 "phone": str(policyholder.phone) if policyholder.phone else '',
                 "totalinsurees": str(number_of_insuree) if number_of_insuree else '',
@@ -66,9 +81,16 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
                 "subscriber_contribution": str(employer_contribution) if employer_contribution else '',
                 "name": "",
                 "insured_contribution": str(salary_share) if salary_share else '',
-                "expected_amout": str(total_amount) if total_amount else '',
+                "declaration_month": str(declaration_month) or '',
+                "expected_amount": str(expected_amount) or '',
+                "overdue_amount": str(overdue_amount) or '',
+                "late_declaration_penalty": str(late_declaration_penalty) or '',
+                "late_payment_penalty": str(late_payment_penalty) or '',
+                "total_amount": str(total_amount) if total_amount else '',
+                "payment_due_date":  ''
             }
         }
+        logging.info("Report data prepared successfully")
         report_config = ReportConfig.get_report('certificate_declaration_insured')
         if not report_config:
             raise Http404("Report configuration does not exist")
@@ -77,7 +99,8 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
         )
         template_dict = json.loads(report_definition)
         pdf = generate_report('certificate_declaration_insured', template_dict, data)
+        logging.info("Report generated successfully")
         return pdf
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}")
         return None
