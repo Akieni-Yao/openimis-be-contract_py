@@ -20,6 +20,7 @@ from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
 
 import logging
+import calendar
 
 from .views import multi_contract, send_contract
 
@@ -108,6 +109,9 @@ def on_contract_approve_signal(sender, **kwargs):
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
+                _, last_day = calendar.monthrange(start_date_to_create_contract.year, start_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
                 last_date_to_create_contract = last_date_to_create_contract.replace(
                     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
             elif start_date_day_to_create_contract < last_date_day_to_create_contract and start_date_day_to_create_contract > contract_create_date_day and contract_create_date_day < last_date_day_to_create_contract:
@@ -115,6 +119,9 @@ def on_contract_approve_signal(sender, **kwargs):
                 start_date_to_create_contract = start_date_to_create_contract.replace(
                     day=start_date_day_to_create_contract, 
                     month=contract_create_date_month, year=contract_create_date_year)
+                _, last_day = calendar.monthrange(start_date_to_create_contract.year, start_date_to_create_contract.month)
+                if last_date_day_to_create_contract > last_day:
+                     last_date_day_to_create_contract = last_day
                 last_date_to_create_contract = last_date_to_create_contract.replace(
                     day=last_date_day_to_create_contract, month=contract_create_date_month, year=contract_create_date_year)
             elif start_date_day_to_create_contract > last_date_day_to_create_contract and start_date_day_to_create_contract < contract_create_date_day and contract_create_date_day > last_date_day_to_create_contract:
@@ -447,7 +454,7 @@ def __send_email_notify_payment(contract_id,code, name, contact_name, amount_due
             to=[email],
         )
         # Attach the PDF file
-        pdf_file = generate_report_for_employee_declaration(contract_id, code, policy_holder_id, contract_approved_date, amount_due)
+        pdf_file = generate_report_for_employee_declaration(contract_id, code, policy_holder_id, contract_approved_date)
         email_message.attach('payment_receipt.pdf', pdf_file, 'application/pdf')
         # Attach the Excel file
         excel_file =  send_contract(contract_id)
