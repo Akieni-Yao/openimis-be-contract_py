@@ -1,16 +1,55 @@
+import datetime
+
+from dateutil.relativedelta import relativedelta
+from datetime import datetime
 import json
 import logging
 
 from django.http import Http404
 
-from contract.models import Contract
+from contract.models import Contract, ContractContributionPlanDetails
 from contract.views import get_contract_custom_field_data
 from contribution_plan.models import ContributionPlanBundleDetails
 from insuree.reports.code_converstion_for_report import convert_activity_data
-from payment.models import Payment
+from payment.models import Payment, PaymentDetail
 from policyholder.models import PolicyHolder, PolicyHolderContributionPlan, PolicyHolderInsuree
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
+
+
+def get_product_date(payment):
+    new_date = ''
+    now = datetime.now()
+
+    payment_details = PaymentDetail.objects.filter(payment=payment, legacy_id__isnull=True).first()
+
+    if payment_details:
+        ccpd = ContractContributionPlanDetails.objects.filter(contribution__id=payment_details.premium.id).first()
+
+        if ccpd:
+            product_config = ccpd.contribution_plan.benefit_plan.config_data
+
+            if product_config:
+                last_date_to_create_payment = product_config.get("PaymentEndDate", '')
+
+                if last_date_to_create_payment:
+                    last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, '%Y-%m-%d').date()
+                    formatted_day = last_date_to_create_payment.strftime('%d')
+                    print('DAY:', formatted_day)
+
+                    year = last_date_to_create_payment.year
+                    print('YEAR:', year)
+
+                    next_month_date = now + relativedelta(months=1)
+                    new_month_str = next_month_date.strftime('%b')
+
+                    if new_month_str == 'Dec':
+                        year += 1
+
+                    new_date_str = f'{formatted_day}-{new_month_str}-{year}'
+                    new_date = datetime.strptime(new_date_str, '%d-%b-%Y').date()
+
+    return new_date.strftime('%d-%m-%Y') if new_date else ''
 
 
 def generate_report_for_employee_declaration(contract_id, code, uuid, contract_approved_date):
@@ -21,6 +60,8 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
         overdue_amount = 0
         late_declaration_penalty = 0
         late_payment_penalty = 0
+        new_date = ''
+        declaration_month = str(contract_approved_date.strftime('%b').upper())
         payment = Payment.objects.filter(contract__id=contract_id).first()
         if payment:
             total_amount = payment.total_amount
@@ -28,9 +69,9 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
             overdue_amount = payment.parent_pending_payment
             late_declaration_penalty = payment.contract_penalty_amount
             late_payment_penalty = payment.penalty_amount if payment.penalty_amount else 0.0
+            new_date = get_product_date(payment)
             logging.info("Payment details retrieved successfully")
-        # payment_due_date =
-        declaration_month = str(contract_approved_date.strftime('%b').upper())
+
         policyholder = PolicyHolder.objects.get(uuid=uuid)
         ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policyholder, is_deleted=False).first()
         json_ext_data = policyholder.json_ext['jsonExt'] if policyholder.json_ext else {}
@@ -39,9 +80,9 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
         number_of_insuree = json_ext_data.get('nbEmployees', '')
         converted_activity_code = convert_activity_data(activity_code)
         converted_creation_date = str(contract_approved_date.strftime('%d-%m-%Y'))
-        # ad = str(amount_due)
         cpb = ph_cpb.contribution_plan_bundle
         cpbd = ContributionPlanBundleDetails.objects.filter(contribution_plan_bundle=cpb, is_deleted=False).first()
+
         conti_plan = cpbd.contribution_plan if cpbd else None
         ercp = 0
         eecp = 0
@@ -87,7 +128,7 @@ def generate_report_for_employee_declaration(contract_id, code, uuid, contract_a
                 "late_declaration_penalty": str(late_declaration_penalty) or '',
                 "late_payment_penalty": str(late_payment_penalty) or '',
                 "total_amount": str(total_amount) if total_amount else '',
-                "payment_due_date":  ''
+                "payment_due_date": str(new_date) or ''
             }
         }
         logging.info("Report data prepared successfully")
