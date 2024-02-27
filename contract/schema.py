@@ -69,23 +69,23 @@ class Query(graphene.ObjectType):
         try:
             policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
             if policy_holder:
-                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder, is_deleted=False).first()
+                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
+                                                                     is_deleted=False).first()
                 contract = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False) \
                     .order_by('-date_valid_to') \
                     .first()
-
-                if contract:
-                    contract_last_date = contract.date_valid_to
-                    # Check for gap between start_date and contract_last_date
-                    if start_date != (contract_last_date + timedelta(days=1)).date():
-                        return "Please create a contract for the previous month first"
 
                 if ph_cpb:
                     contribution_plan_bundle = ph_cpb.contribution_plan_bundle
                     periodicity = contribution_plan_bundle.periodicity
 
+                    if contract and periodicity != 12:
+                        contract_last_date = contract.date_valid_to
+                        if start_date != (contract_last_date + timedelta(days=1)).date():
+                            return "Please create a contract for the previous month first"
+
                     if periodicity is not None:
-                        if 1 <= periodicity <= 12:
+                        if 1 <= periodicity <= 3:
                             if periodicity == 1:
                                 _, last_day_of_month = monthrange(start_date.year, start_date.month)
                                 end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
@@ -93,6 +93,15 @@ class Query(graphene.ObjectType):
                                 end_date = start_date + relativedelta(months=periodicity)
                                 end_date -= timedelta(days=1)
                             return str(end_date)
+                        elif periodicity == 12:
+                            is_exist = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False,
+                                                               date_valid_from__gte=start_date)
+                            if not is_exist and start_date >= (contract.date_valid_from + timedelta(days=1)).date():
+                                end_date = start_date + relativedelta(months=periodicity)
+                                end_date -= timedelta(days=1)
+                                return str(end_date)
+                            else:
+                                return "Please create a contract for the previous month first" #TODO need to cheange error message
                         else:
                             return f"Invalid periodicity value: {periodicity}"
                     else:
