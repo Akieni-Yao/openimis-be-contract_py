@@ -756,6 +756,12 @@ class ContractContributionPlanDetails(object):
             if product.insurance_period == 3:
                 # desired_start_policy_day is a policy start day in month
                 desired_start_policy_day = 6
+                if product_config:
+                    last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                    if last_date_to_create_payment:
+                        last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                        last_date_day_to_create_payment = last_date_to_create_payment.day
+                        desired_start_policy_day = last_date_day_to_create_payment + 1
                 if ccpd.contract_details.contract.parent:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 1
@@ -778,6 +784,27 @@ class ContractContributionPlanDetails(object):
                     # expiry_date is the policy End date 
                     expiry_date = last_date_covered + relativedelta(months=product.insurance_period-1)
                     expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+            
+            if product.insurance_period == 12:
+                desired_start_policy_day = 6
+                if product_config:
+                    last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                    if last_date_to_create_payment:
+                        last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                        last_date_day_to_create_payment = last_date_to_create_payment.day
+                        desired_start_policy_day = last_date_day_to_create_payment + 1
+                    
+                desired_month_gap_policy_contract = 4
+                print("desired_start_policy_day : ", desired_start_policy_day)
+                # last_date_covered is the policy Start date 
+                last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
+                last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                print("last_date_covered : ", last_date_covered)
+                # expiry_date is the policy End date 
+                expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+                expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+                print("expiry_date : ", expiry_date)
+                        
 
             logger.info(f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}")
             logger.info(f"create_contract_details_policies : expiry_date : {expiry_date}")
@@ -814,7 +841,7 @@ class ContractContributionPlanDetails(object):
             amendment = 0
             for contract_details in contract_contribution_plan_details["contract_details"]:
                 cpbd_list = ContributionPlanBundleDetails.objects.filter(
-                    contribution_plan_bundle__id=str(contract_details["contribution_plan_bundle"])
+                    contribution_plan_bundle__id=str(contract_details["contribution_plan_bundle"]), is_deleted=False
                 )
                 amendment = contract_details["amendment"]
                 for cpbd in cpbd_list:
