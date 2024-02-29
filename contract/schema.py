@@ -96,7 +96,11 @@ class Query(graphene.ObjectType):
                         elif periodicity == 12:
                             is_exist = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False,
                                                                date_valid_from__gte=start_date)
-                            if not is_exist and contract and start_date >= (contract.date_valid_from + timedelta(days=1)).date():
+                            if not is_exist and not contract:
+                                end_date = start_date + relativedelta(months=periodicity)
+                                end_date -= timedelta(days=1)
+                                return str(end_date)
+                            elif not is_exist and start_date >= (contract.date_valid_from + timedelta(days=1)).date():
                                 end_date = start_date + relativedelta(months=periodicity)
                                 end_date -= timedelta(days=1)
                                 return str(end_date)
