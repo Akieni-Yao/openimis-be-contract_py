@@ -1074,7 +1074,7 @@ class PaymentService(object):
                     print(p.payment_code)
                     p.save()
                     try:
-                        create_paymentcode_openkmfolder(payment_code)
+                        create_paymentcode_openkmfolder(payment_code, p)
                     except Exception as e:
                         pass
             except Exception as e:
