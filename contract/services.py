@@ -29,7 +29,7 @@ from contribution_plan.models import ContributionPlanBundleDetails, Contribution
 from policy.models import Policy
 from payment.models import Payment, PaymentDetail
 from payment.services import update_or_create_payment
-from insuree.models import Insuree
+from insuree.models import Insuree, InsureePolicy
 from datetime import datetime
 from django.utils import timezone
 
@@ -564,6 +564,66 @@ class ContractDetails(object):
             policy_holder_insuree = PolicyHolderInsuree.objects.filter(
                 policy_holder__id=contract_details['policy_holder_id'],
             )
+            print("policy_holder_insuree : ", policy_holder_insuree)
+            logger.info(f"update_from_ph_insuree : policy_holder_insuree : {policy_holder_insuree}")
+            if len(policy_holder_insuree) > 0 and policy_holder_insuree[0].contribution_plan_bundle.periodicity == 12:
+                exclude_phi = []
+                for phi in policy_holder_insuree:
+                    phi_cd = ContractDetailsModel.objects.filter(
+                        insuree_id=phi.insuree.id, 
+                        contract__policy_holder__id=contract_details['policy_holder_id'],
+                        contribution_plan_bundle_id=phi.contribution_plan_bundle.id,
+                        contract__is_deleted=False,
+                        is_deleted=False).order_by('insuree__id', '-date_created').distinct('insuree__id')
+                    print("phi_cd : ", phi_cd)
+                    logger.info(f"update_from_ph_insuree : phi_cd : {phi_cd}")
+                    
+                    if phi_cd and len(phi_cd) > 0:
+                        for cd in phi_cd:
+                            print("cd : ", cd)
+                            logger.info(f"update_from_ph_insuree : cd : {cd}")
+                            ccpd = ContractContributionPlanDetailsModel.objects.filter(contract_details_id=cd.id, is_deleted=False).first()
+                            contract = ContractModel.objects.filter(id=contract_details["contract_id"]).first()
+                            
+                            desired_start_policy_day = 6
+                            try:
+                                product_config = ccpd.contribution_plan.benefit_plan.config_data
+                            except Exception as e:
+                                product_config = None
+                            print("product_config : ", product_config)
+                            if product_config:
+                                last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                                if last_date_to_create_payment:
+                                    last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                                    last_date_day_to_create_payment = last_date_to_create_payment.day
+                                    desired_start_policy_day = last_date_day_to_create_payment + 1
+                            
+                            desired_month_gap_policy_contract = 4
+                            # last_date_covered is the policy Start date
+                            policy_start_date = contract.date_valid_from.date()
+                            policy_start_date = policy_start_date.replace(day=desired_start_policy_day)
+                            policy_start_date = policy_start_date + relativedelta(months=desired_month_gap_policy_contract)
+                            
+                            print("policy_start_date : ", policy_start_date)
+                            print("ccpd.policy.expiry_date : ", ccpd.policy.expiry_date)
+                            print("ccpd.policy.id : ", ccpd.policy.id)
+                            print("phi.insuree.id : ", phi.insuree.id)
+                            print("phi.id : ", phi.id)
+                            
+                            logger.info(f"update_from_ph_insuree : policy_start_date : {policy_start_date}")
+                            logger.info(f"update_from_ph_insuree : ccpd.policy.expiry_date : {ccpd.policy.expiry_date}")
+                            logger.info(f"update_from_ph_insuree : ccpd.policy.id : {ccpd.policy.id}")
+                            logger.info(f"update_from_ph_insuree : phi.insuree.id : {phi.insuree.id}")
+                            logger.info(f"update_from_ph_insuree : phi.id : {phi.id}")
+                            
+                            if ccpd.policy.expiry_date > policy_start_date:
+                                exclude_phi.append(phi.id)
+                                
+                print("exclude_phi : ", exclude_phi)
+                logger.info(f"update_from_ph_insuree : exclude_phi : {exclude_phi}")
+                if len(exclude_phi) > 0:
+                    policy_holder_insuree = policy_holder_insuree.exclude(id__in=exclude_phi)
+                        
             for phi in policy_holder_insuree:
                 # TODO add the validity condition also!
                 if phi.is_deleted is False and phi.contribution_plan_bundle:
@@ -756,6 +816,12 @@ class ContractContributionPlanDetails(object):
             if product.insurance_period == 3:
                 # desired_start_policy_day is a policy start day in month
                 desired_start_policy_day = 6
+                if product_config:
+                    last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                    if last_date_to_create_payment:
+                        last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                        last_date_day_to_create_payment = last_date_to_create_payment.day
+                        desired_start_policy_day = last_date_day_to_create_payment + 1
                 if ccpd.contract_details.contract.parent:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 1
@@ -778,6 +844,27 @@ class ContractContributionPlanDetails(object):
                     # expiry_date is the policy End date 
                     expiry_date = last_date_covered + relativedelta(months=product.insurance_period-1)
                     expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+            
+            if product.insurance_period == 12:
+                desired_start_policy_day = 6
+                if product_config:
+                    last_date_to_create_payment = product_config.get("PaymentEndDate", None)
+                    if last_date_to_create_payment:
+                        last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
+                        last_date_day_to_create_payment = last_date_to_create_payment.day
+                        desired_start_policy_day = last_date_day_to_create_payment + 1
+                    
+                desired_month_gap_policy_contract = 4
+                print("desired_start_policy_day : ", desired_start_policy_day)
+                # last_date_covered is the policy Start date 
+                last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
+                last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                print("last_date_covered : ", last_date_covered)
+                # expiry_date is the policy End date 
+                expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
+                expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+                print("expiry_date : ", expiry_date)
+                        
 
             logger.info(f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}")
             logger.info(f"create_contract_details_policies : expiry_date : {expiry_date}")
@@ -814,7 +901,7 @@ class ContractContributionPlanDetails(object):
             amendment = 0
             for contract_details in contract_contribution_plan_details["contract_details"]:
                 cpbd_list = ContributionPlanBundleDetails.objects.filter(
-                    contribution_plan_bundle__id=str(contract_details["contribution_plan_bundle"])
+                    contribution_plan_bundle__id=str(contract_details["contribution_plan_bundle"]), is_deleted=False
                 )
                 amendment = contract_details["amendment"]
                 for cpbd in cpbd_list:
@@ -987,7 +1074,7 @@ class PaymentService(object):
                     print(p.payment_code)
                     p.save()
                     try:
-                        create_paymentcode_openkmfolder(payment_code)
+                        create_paymentcode_openkmfolder(payment_code, p)
                     except Exception as e:
                         pass
             except Exception as e:
