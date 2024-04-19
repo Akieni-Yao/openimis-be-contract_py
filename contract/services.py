@@ -910,6 +910,9 @@ class ContractContributionPlanDetails(object):
                 logger.info(f"contract_valuation : amendment : {amendment}")
                 for cpbd in cpbd_list:
                     logger.info(f"contract_valuation : cpbd : {cpbd}")
+                    logger.info(f"contract_valuation : contract_details['id'] : {contract_details['id']}")
+                    logger.info(f"contract_valuation : cpbd.contribution_plan.id : {cpbd.contribution_plan.id}")
+                    logger.info(f"contract_valuation : contract_details['policy_id'] : {contract_details['policy_id']}")
                     ccpd = ContractContributionPlanDetailsModel(
                         **{
                             "contract_details_id": contract_details["id"],
