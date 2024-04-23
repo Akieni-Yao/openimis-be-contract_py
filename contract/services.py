@@ -895,16 +895,24 @@ class ContractContributionPlanDetails(object):
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
         try:
+            logger.info("contract_valuation : --------- Start ---------")
             dict_representation = {}
             ccpd_list = []
             total_amount = 0
             amendment = 0
             for contract_details in contract_contribution_plan_details["contract_details"]:
+                logger.info(f"contract_valuation : contract_details : {contract_details}")
                 cpbd_list = ContributionPlanBundleDetails.objects.filter(
                     contribution_plan_bundle__id=str(contract_details["contribution_plan_bundle"]), is_deleted=False
                 )
+                logger.info(f"contract_valuation : cpbd_list : {cpbd_list}")
                 amendment = contract_details["amendment"]
+                logger.info(f"contract_valuation : amendment : {amendment}")
                 for cpbd in cpbd_list:
+                    logger.info(f"contract_valuation : cpbd : {cpbd}")
+                    logger.info(f"contract_valuation : contract_details['id'] : {contract_details['id']}")
+                    logger.info(f"contract_valuation : cpbd.contribution_plan.id : {cpbd.contribution_plan.id}")
+                    logger.info(f"contract_valuation : contract_details['policy_id'] : {contract_details['policy_id']}")
                     ccpd = ContractContributionPlanDetailsModel(
                         **{
                             "contract_details_id": contract_details["id"],
@@ -912,14 +920,20 @@ class ContractContributionPlanDetails(object):
                             "policy_id": contract_details["policy_id"],
                         }
                     )
+                    logger.info(f"contract_valuation : ccpd : {ccpd}")
                     # rc - result of calculation
                     calculated_amount = 0
                     rc = run_calculation_rules(ccpd, "create", self.user)
+                    logger.info(f"contract_valuation : rc : {rc}")
                     if rc:
                         calculated_amount = rc[0][1] if rc[0][1] not in [None, False] else 0
                         total_amount = float(total_amount)
                         total_amount += float(calculated_amount)
+                        logger.info(f"contract_valuation : calculated_amount : {calculated_amount}")
+                        logger.info(f"contract_valuation : calculated_amount : {total_amount}")
+                        
                     ccpd_record = model_to_dict(ccpd)
+                    logger.info(f"contract_valuation : ccpd_record : {ccpd_record}")
                     ccpd_record["calculated_amount"] = calculated_amount
                     if contract_contribution_plan_details["save"]:
                         ccpd_list, total_amount, ccpd_record = self.__append_contract_cpd_to_list(
@@ -952,6 +966,9 @@ class ContractContributionPlanDetails(object):
                 total_amount = float(total_amount) - float(received_amount)
             dict_representation['total_amount'] = total_amount
             dict_representation['contribution_plan_details'] = ccpd_list
+            logger.info(f"contract_valuation : total_amount : {total_amount}")
+            logger.info(f"contract_valuation : ccpd_list : {ccpd_list}")
+            logger.info("contract_valuation : --------- End ---------")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             return _output_exception(
