@@ -31,6 +31,8 @@ class ContractGQLType(DjangoObjectType):
             "date_updated": ["exact", "lt", "lte", "gt", "gte"],
             "is_deleted": ["exact"],
             "version": ["exact"],
+            "date_valid_from": ["exact", "gt", "gte", "isnull"],
+            "date_valid_to": ["exact", "lt", "lte", "isnull"],
         }
 
         connection_class = ExtendedConnection
