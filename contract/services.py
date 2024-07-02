@@ -111,7 +111,7 @@ class Contract(object):
                             total_amount = float(total_amount)
                         except ValueError:
                             pass  # Keep the original value if it can't be converted to a number
-                    rounded_total_amount = round(float(total_amount), 2)
+                    rounded_total_amount = round(total_amount)
                     c.amount_notified = rounded_total_amount
             historical_record = c.history.all().last()
             c.json_ext = _save_json_external(
@@ -231,7 +231,7 @@ class Contract(object):
                         ar_amount = float(ar_amount)
                     except ValueError:
                         pass  # Keep the original value if it can't be converted to a number
-                rounded_total_amount = round(float(ar_amount), 2)
+                rounded_total_amount = round(ar_amount)
                 contract_to_submit.amount_rectified = rounded_total_amount
             # send signal
             contract_to_submit.state = ContractModel.STATE_NEGOTIABLE

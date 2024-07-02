@@ -60,7 +60,7 @@ def on_contract_approve_signal(sender, **kwargs):
     logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
     if isinstance(amount_due, str):
         amount_due = float(amount_due)
-    rounded_amount = round(amount_due, 2)
+    rounded_amount = round(amount_due)
     contract_to_approve.amount_due = rounded_amount
     logger.info(f"on_contract_approve_signal : rounded_amount = {rounded_amount}")
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
