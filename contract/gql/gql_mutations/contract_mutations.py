@@ -13,6 +13,10 @@ from contract.gql.gql_mutations.input_types import ContractCreateInputType, Cont
 from contract.tasks import approve_contracts, counter_contracts, create_invoice_from_contracts
 from contract.exceptions import CeleryWorkerError
 from kombu.exceptions import OperationalError
+from contract.erp_integrations import erp_submit_contract, erp_contract_payment
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class CreateContractMutation(ContractCreateMutationMixin, BaseMutation):
@@ -47,6 +51,14 @@ class SubmitContractMutation(ContractSubmitMutationMixin, BaseMutation):
     _mutation_module = "contract"
     _model = Contract
 
+    @classmethod
+    # @mutation_on_uuids_from_filter_business_model(Contract, ContractGQLType, 'extended_filters', {})
+    def async_mutate(cls, user, **data):
+        cls._validate_mutation(user, **data)
+        logger.debug(f"===> SubmitContractMutation : data : {data['id']}")
+        erp_submit_contract(data['id'])
+        return None
+
     class Input(ContractSubmitInputType):
         pass
 
@@ -55,6 +67,14 @@ class ApproveContractMutation(ContractApproveMutationMixin, BaseMutation):
     _mutation_class = "ApproveContractMutation"
     _mutation_module = "contract"
     _model = Contract
+
+    @classmethod
+    # @mutation_on_uuids_from_filter_business_model(Contract, ContractGQLType, 'extended_filters', {})
+    def async_mutate(cls, user, **data):
+        cls._validate_mutation(user, **data)
+        logger.debug(f"===> ContractPaymentMutation : data : {data['id']}")
+        erp_contract_payment(data['id'])
+        return None
 
     class Input(ContractApproveInputType):
         pass
