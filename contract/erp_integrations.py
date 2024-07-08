@@ -62,15 +62,15 @@ def erp_submit_contract(id):
         return
 
     try:
-        customer_id = contracts.policy_holder.code
+        customer_id = contracts.policy_holder.id
         account_receivable_id = contribution.contribution_plan_bundle.account_receivable_id
-        declaration_date = contracts.date_valid_from.strftime("%Y/%m/%d")
-        product_level = contracts.date_valid_from.strftime("%b%Y").upper()
+        declaration_date = contracts.date_valid_from.strftime("%d/%m/%Y")
+        product_level = contracts.date_valid_from.strftime("%b %Y").upper()
         amount = contracts.amount_notified
 
         invoice = []
         products = {
-            "product_id": 25,
+            "product_id": 3951,
             "label": product_level,
             "account_id": account_receivable_id,
             "quantity": 1,
@@ -94,10 +94,22 @@ def erp_submit_contract(id):
 
         response = requests.post(url, headers=headers, json=contract_data, verify=False)
         logger.debug(
-            f" ======    erp_create_update_policyholder : response.status_code : {response.status_code}    =======")
-        logger.debug(f" ======    erp_create_update_policyholder : response.text : {response.text}    =======")
+            f" ======    erp_submit_contract : response.status_code : {response.status_code}    =======")
+        logger.debug(f" ======    erp_submit_contract : response.text : {response.text}    =======")
 
         logger.debug("Contract data successfully prepared: %s", contract_data)
+
+        try:
+            response_json = response.json()
+            logger.debug(f" ======    erp_submit_contract : response.json : {response_json}    =======")
+
+            # Update the Contract with the IDs from the response
+            Contract.objects.filter(id=id).update(
+                erp_contract_id=response.get("id"), erp_invoice_access_id=response.get("invoice_access_id"))
+
+        except json.JSONDecodeError:
+            logger.error("Failed to decode JSON response")
+
 
     except Exception as e:
         logger.error("An error occurred: %s", e)
@@ -133,7 +145,7 @@ def erp_contract_payment(id):
             if payment.invoice_access_id:
                 logger.debug("====== erp_contract_payment - update ======")
                 url = '{}/invoice/register-payment/{}'.format(erp_url, payment.invoice_access_id)
-                logger.debug(f"====== erp_create_update_policyholder : url : {url} ======")
+                logger.debug(f"====== erp_contract_payment : url : {url} ======")
 
             logger.debug(f"====== erp_contract_payment : contract_data : {contract_payment_data} ======")
 
@@ -147,8 +159,8 @@ def erp_contract_payment(id):
             try:
                 response = requests.post(url, headers=headers, json=contract_payment_data, verify=False)
                 logger.debug(
-                    f"====== erp_create_update_policyholder : response.status_code : {response.status_code} ======")
-                logger.debug(f"====== erp_create_update_policyholder : response.text : {response.text} ======")
+                    f"====== erp_contract_payment : response.status_code : {response.status_code} ======")
+                logger.debug(f"====== erp_contract_payment : response.text : {response.text} ======")
             except requests.RequestException as e:
                 logger.error(f"Error making HTTP request: {e}")
 
