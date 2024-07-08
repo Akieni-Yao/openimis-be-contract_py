@@ -430,6 +430,7 @@ def __create_payment(contract, payment_service, contract_cpd, product_config=Non
         "expected_amount": contract.amount_due,
         "request_date": now,
         "contract": contract,
+        "status":Payment.STATUS_CREATED,
     }
     logger.info(f"__create_payment : payment_data = {payment_data}")
     payment_details_data = payment_service.collect_payment_details(contract_cpd["contribution_plan_details"])
