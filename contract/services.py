@@ -31,6 +31,7 @@ from payment.models import Payment, PaymentDetail
 from payment.services import update_or_create_payment
 from insuree.models import Insuree, InsureePolicy
 from datetime import datetime
+from erp_integrations import erp_submit_contract
 from django.utils import timezone
 
 from dateutil.relativedelta import relativedelta
@@ -314,6 +315,7 @@ class Contract(object):
                 payment_service=payment_service,
                 ccpd_service=ccpd_service,
             )
+            erp_submit_contract(contract_to_approve.id)
             # ccpd.create_contribution(contract_contribution_plan_details)
             dict_representation = {}
             id_contract_approved = f"{contract_to_approve.id}"

@@ -51,13 +51,6 @@ class SubmitContractMutation(ContractSubmitMutationMixin, BaseMutation):
     _mutation_module = "contract"
     _model = Contract
 
-    @classmethod
-    # @mutation_on_uuids_from_filter_business_model(Contract, ContractGQLType, 'extended_filters', {})
-    def async_mutate(cls, user, **data):
-        cls._validate_mutation(user, **data)
-        logger.debug(f"===> SubmitContractMutation : data : {data['id']}")
-        return None
-
     class Input(ContractSubmitInputType):
         pass
 
@@ -66,14 +59,6 @@ class ApproveContractMutation(ContractApproveMutationMixin, BaseMutation):
     _mutation_class = "ApproveContractMutation"
     _mutation_module = "contract"
     _model = Contract
-
-    @classmethod
-    # @mutation_on_uuids_from_filter_business_model(Contract, ContractGQLType, 'extended_filters', {})
-    def async_mutate(cls, user, **data):
-        cls._validate_mutation(user, **data)
-        logger.debug(f"===> ContractPaymentMutation : data : {data['id']}")
-        erp_submit_contract(data['id'])
-        return None
 
     class Input(ContractApproveInputType):
         pass

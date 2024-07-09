@@ -148,7 +148,6 @@ def erp_submit_contract(id):
                 Contract.objects.filter(id=id).update(
                 erp_contract_id=response_json.get("id"), erp_invoice_access_id=response_json.get("invoice_access_id"))
 
-            if response.status_code == 200:
                 contract_payment_data = erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, payment_data.get('received_amount'))
                 contract_payment_data = filter_null_values(contract_payment_data)
                 logger.debug("====== erp_contract_payment - update ======")
