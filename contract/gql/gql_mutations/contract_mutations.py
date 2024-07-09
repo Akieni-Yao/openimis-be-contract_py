@@ -13,7 +13,7 @@ from contract.gql.gql_mutations.input_types import ContractCreateInputType, Cont
 from contract.tasks import approve_contracts, counter_contracts, create_invoice_from_contracts
 from contract.exceptions import CeleryWorkerError
 from kombu.exceptions import OperationalError
-from contract.erp_integrations import erp_submit_contract, erp_contract_payment
+from contract.erp_integrations import erp_submit_contract
 
 import logging
 logger = logging.getLogger(__name__)
@@ -56,7 +56,6 @@ class SubmitContractMutation(ContractSubmitMutationMixin, BaseMutation):
     def async_mutate(cls, user, **data):
         cls._validate_mutation(user, **data)
         logger.debug(f"===> SubmitContractMutation : data : {data['id']}")
-        erp_submit_contract(data['id'])
         return None
 
     class Input(ContractSubmitInputType):
@@ -73,7 +72,7 @@ class ApproveContractMutation(ContractApproveMutationMixin, BaseMutation):
     def async_mutate(cls, user, **data):
         cls._validate_mutation(user, **data)
         logger.debug(f"===> ContractPaymentMutation : data : {data['id']}")
-        erp_contract_payment(data['id'])
+        erp_submit_contract(data['id'])
         return None
 
     class Input(ContractApproveInputType):
