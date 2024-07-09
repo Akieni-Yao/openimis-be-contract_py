@@ -10,7 +10,6 @@ from contribution.models import Premium
 from policyholder.models import PolicyHolder
 from insuree.models import Insuree
 
-
 class ContractManager(models.Manager):
     def filter(self, *args, **kwargs):
         keys = [x for x in kwargs if "itemsvc" in x]
