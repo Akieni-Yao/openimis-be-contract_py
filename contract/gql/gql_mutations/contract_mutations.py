@@ -13,10 +13,6 @@ from contract.gql.gql_mutations.input_types import ContractCreateInputType, Cont
 from contract.tasks import approve_contracts, counter_contracts, create_invoice_from_contracts
 from contract.exceptions import CeleryWorkerError
 from kombu.exceptions import OperationalError
-from contract.erp_integrations import erp_submit_contract
-
-import logging
-logger = logging.getLogger(__name__)
 
 
 class CreateContractMutation(ContractCreateMutationMixin, BaseMutation):
