@@ -58,7 +58,7 @@ def erp_submit_contract(id):
 
     try:
         customer_id = contract.policy_holder.erp_partner_id
-        account_receivable_id = int(contribution.contribution_plan_bundle.account_receivable_id)
+        # account_receivable_id = int(contribution.contribution_plan_bundle.account_receivable_id)
         declaration_date = contract.date_valid_from.strftime("%d/%m/%Y")
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
         amount = contract.amount_notified
@@ -66,7 +66,7 @@ def erp_submit_contract(id):
         invoice = [{
             "product_id": 3951,
             "label": product_level,
-            "account_id": account_receivable_id,
+            # "account_id": account_receivable_id, Not required as per discussion
             "quantity": 1,
             "unit_price": amount
         }]
