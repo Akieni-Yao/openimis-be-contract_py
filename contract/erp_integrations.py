@@ -66,7 +66,7 @@ def erp_submit_contract(id):
         invoice = [{
             "product_id": 3951,
             "label": product_level,
-            "account_id": account_receivable_id
+            "account_id": account_receivable_id,
             "quantity": 1,
             "unit_price": amount
         }]
