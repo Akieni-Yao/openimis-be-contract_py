@@ -60,7 +60,7 @@ def on_contract_approve_signal(sender, **kwargs):
     logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
     if isinstance(amount_due, str):
         amount_due = float(amount_due)
-    rounded_amount = round(amount_due)
+    rounded_amount = round(amount_due, 2)
     contract_to_approve.amount_due = rounded_amount
     logger.info(f"on_contract_approve_signal : rounded_amount = {rounded_amount}")
     result = ccpd_service.create_contribution(contract_contribution_plan_details)
@@ -430,7 +430,7 @@ def __create_payment(contract, payment_service, contract_cpd, product_config=Non
         "expected_amount": contract.amount_due,
         "request_date": now,
         "contract": contract,
-        "status":Payment.STATUS_CREATED,
+        "product_config": product_config,
     }
     logger.info(f"__create_payment : payment_data = {payment_data}")
     payment_details_data = payment_service.collect_payment_details(contract_cpd["contribution_plan_details"])

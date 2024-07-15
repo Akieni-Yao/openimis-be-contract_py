@@ -46,8 +46,6 @@ class Contract(core_models.HistoryBusinessModel):
     # parent_contract_pending = models.BooleanField(db_column='ParentPaymentPending', default=False)
     # parent_penalty_paid = models.BooleanField(db_column='ParentPaymentPaid', null=True)
     gap_from_parent = models.IntegerField(db_column='GapFromParent', null=True)
-    erp_contract_id = models.IntegerField(db_column='ErpContractID', null=True)
-    erp_invoice_access_id = models.CharField(db_column='ErpInvoiceAccessID', max_length=255, null=True)
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
     
