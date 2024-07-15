@@ -7,6 +7,7 @@ from contract.models import Contract, ContractMutation
 from contract.apps import ContractConfig
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
+from contract.erp_integrations import erp_submit_contract
 
 
 class ContractCreateMutationMixin:
@@ -150,6 +151,7 @@ class ContractApproveMutationMixin:
     def approve_contract(cls, user, contract):
         contract_service = ContractService(user=user)
         output_data = contract_service.approve(contract=contract)
+        erp_submit_contract(contract['id'])
         return output_data
 
 
