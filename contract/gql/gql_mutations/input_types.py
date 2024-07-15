@@ -7,9 +7,9 @@ class ContractCreateInputType(OpenIMISMutation.Input):
     code = graphene.String(required=True, max_length=32)
     policy_holder_id = graphene.UUID(required=False)
 
-    amount_notified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_due = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
+    amount_notified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_due = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
 
     date_approved = graphene.DateTime(required=False)
     date_payment_due = graphene.Date(required=False)
@@ -32,9 +32,9 @@ class ContractUpdateInputType(OpenIMISMutation.Input):
     code = graphene.String(required=False, max_length=32)
     policy_holder_id = graphene.UUID(required=False)
 
-    amount_notified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_due = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
+    amount_notified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_due = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
 
     date_approved = graphene.DateTime(required=False)
     date_payment_due = graphene.Date(required=False)
@@ -81,9 +81,9 @@ class ContractCreateInvoiceBulkInputType(OpenIMISMutation.Input):
 
 class ContractAmendInputType(OpenIMISMutation.Input):
     id = graphene.UUID(required=True)
-    amount_notified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
-    amount_due = graphene.Decimal(max_digits=18, decimal_places=2, required=False)
+    amount_notified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_rectified = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
+    amount_due = graphene.Decimal(max_digits=18, decimal_places=0, required=False)
     date_approved = graphene.DateTime(required=False)
     date_payment_due = graphene.Date(required=False)
     payment_reference = graphene.String(required=False)
