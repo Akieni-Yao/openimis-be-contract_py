@@ -65,6 +65,10 @@ class Query(graphene.ObjectType):
         policyholder_id=graphene.UUID(required=True)
     )
 
+    validate_startdate_based_on_last_contract= graphene.String(
+        policyholder_id=graphene.UUID(required=True)
+    )
+
     def resolve_validate_enddate_by_periodicity(self, info, start_date, policyholder_id):
         try:
             policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
@@ -112,6 +116,29 @@ class Query(graphene.ObjectType):
                         return "Periodicity is not defined for this Contribution Plan Bundle"
                 else:
                     return "Contribution Plan Bundle not found for this Policy Holder"
+            else:
+                return "Policy Holder not found"
+        except Exception as e:
+            print(f"Error: {e}")
+            return str(e)
+
+    def resolve_validate_startdate_based_on_last_contract(self, info, policyholder_id):
+        try:
+            policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
+            if policy_holder:
+                contract = Contract.objects.filter(
+                    policy_holder__id=policyholder_id,
+                    is_deleted=False
+                ).order_by('-date_valid_to').first()
+                if contract:
+                    next_day = contract.date_valid_to + timedelta(days=1)
+                    if next_day.day != 1:
+                        next_month_start = (next_day + relativedelta(months=1)).replace(day=1)
+                    else:
+                        next_month_start = next_day
+                    return str(next_month_start)
+                else:
+                    return "Contract not found"
             else:
                 return "Policy Holder not found"
         except Exception as e:
