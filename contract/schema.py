@@ -61,7 +61,7 @@ class Query(graphene.ObjectType):
     )
 
     validate_enddate_by_periodicity = graphene.String(
-        start_date=graphene.Date(required=True),
+        start_date=graphene.Date(required=False),
         policyholder_id=graphene.UUID(required=True)
     )
 
@@ -69,81 +69,71 @@ class Query(graphene.ObjectType):
         policyholder_id=graphene.UUID(required=True)
     )
 
-    def resolve_validate_enddate_by_periodicity(self, info, start_date, policyholder_id):
+    def resolve_validate_enddate_by_periodicity(self, info, start_date=None, policyholder_id=None):
         try:
             policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
-            if policy_holder:
-                ph_cpb = PolicyHolderContributionPlan.objects.filter(policy_holder=policy_holder,
-                                                                     is_deleted=False).first()
-                contract = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False) \
-                    .order_by('-date_valid_to') \
-                    .first()
+            if not policy_holder:
+                return {"error": "Policy Holder not found"}
 
-                if ph_cpb:
-                    contribution_plan_bundle = ph_cpb.contribution_plan_bundle
-                    periodicity = contribution_plan_bundle.periodicity
+            ph_cpb = PolicyHolderContributionPlan.objects.filter(
+                policy_holder=policy_holder, is_deleted=False
+            ).first()
 
-                    if contract and periodicity != 12:
-                        contract_last_date = contract.date_valid_to
-                        if start_date != (contract_last_date + timedelta(days=1)).date():
-                            return "Please create a contract for the previous month first"
+            contract = Contract.objects.filter(
+                policy_holder__id=policyholder_id, is_deleted=False
+            ).order_by('-date_valid_to').first()
 
-                    if periodicity is not None:
-                        if 1 <= periodicity <= 3:
-                            if periodicity == 1:
-                                _, last_day_of_month = monthrange(start_date.year, start_date.month)
-                                end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
-                            else:
-                                end_date = start_date + relativedelta(months=periodicity)
-                                end_date -= timedelta(days=1)
-                            return str(end_date)
-                        elif periodicity == 12:
-                            is_exist = Contract.objects.filter(policy_holder__id=policyholder_id, is_deleted=False,
-                                                               date_valid_from__gte=start_date)
-                            if not is_exist and not contract:
-                                end_date = start_date + relativedelta(months=periodicity)
-                                end_date -= timedelta(days=1)
-                                return str(end_date)
-                            elif not is_exist and start_date >= (contract.date_valid_from + timedelta(days=1)).date():
-                                end_date = start_date + relativedelta(months=periodicity)
-                                end_date -= timedelta(days=1)
-                                return str(end_date)
-                            else:
-                                return "Invalid Month! Contract of Current or Previous Month is already created."
-                        else:
-                            return f"Invalid periodicity value: {periodicity}"
-                    else:
-                        return "Periodicity is not defined for this Contribution Plan Bundle"
-                else:
-                    return "Contribution Plan Bundle not found for this Policy Holder"
-            else:
-                return "Policy Holder not found"
-        except Exception as e:
-            print(f"Error: {e}")
-            return str(e)
+            if ph_cpb:
+                contribution_plan_bundle = ph_cpb.contribution_plan_bundle
+                periodicity = contribution_plan_bundle.periodicity
 
-    def resolve_validate_startdate_based_on_last_contract(self, info, policyholder_id):
-        try:
-            policy_holder = PolicyHolder.objects.filter(id=policyholder_id).first()
-            if policy_holder:
-                contract = Contract.objects.filter(
-                    policy_holder__id=policyholder_id,
-                    is_deleted=False
-                ).order_by('-date_valid_to').first()
-                if contract:
+                # Determine the start date if not provided
+                if start_date is None and contract:
                     next_day = contract.date_valid_to + timedelta(days=1)
                     if next_day.day != 1:
-                        next_month_start = (next_day + relativedelta(months=1)).replace(day=1)
+                        start_date = (next_day + relativedelta(months=1)).replace(day=1)
                     else:
-                        next_month_start = next_day
-                    return str(next_month_start)
+                        start_date = next_day
+                elif start_date is None:
+                    return {"error": "No start date provided and no previous contract found"}
+
+                if start_date and periodicity is not None:
+                    if 1 <= periodicity <= 3:
+                        if periodicity == 1:
+                            _, last_day_of_month = monthrange(start_date.year, start_date.month)
+                            end_date = start_date + timedelta(days=(periodicity * last_day_of_month) - 1)
+                        else:
+                            end_date = start_date + relativedelta(months=periodicity)
+                            end_date -= timedelta(days=1)
+                    elif periodicity == 12:
+                        is_exist = Contract.objects.filter(
+                            policy_holder__id=policyholder_id, is_deleted=False,
+                            date_valid_from__gte=start_date
+                        )
+                        if not is_exist and not contract:
+                            end_date = start_date + relativedelta(months=periodicity)
+                            end_date -= timedelta(days=1)
+                        elif not is_exist and start_date >= (contract.date_valid_from + timedelta(days=1)).date():
+                            end_date = start_date + relativedelta(months=periodicity)
+                            end_date -= timedelta(days=1)
+                        else:
+                            return {"error": "Invalid Month! Contract of Current or Previous Month is already created."}
+                    else:
+                        return {"error": f"Invalid periodicity value: {periodicity}"}
                 else:
-                    return "Contract not found"
+                    return {"error": "Periodicity is not defined for this Contribution Plan Bundle"}
+
+                # Return both start_date and end_date
+                return {
+                    "start_date": str(start_date),
+                    "end_date": str(end_date)
+                }
             else:
-                return "Policy Holder not found"
+                return {"error": "Contribution Plan Bundle not found for this Policy Holder"}
+
         except Exception as e:
             print(f"Error: {e}")
-            return str(e)
+            return {"error": str(e)}
 
     def resolve_validate_contract_code(self, info, **kwargs):
         if not info.context.user.has_perms(ContractConfig.gql_query_contract_perms):

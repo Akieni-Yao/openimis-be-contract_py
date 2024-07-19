@@ -83,6 +83,14 @@ class ContractDetailsGQLType(DjangoObjectType):
                     eecp = float(calculation_rule.get('employeeContribution', 0))
 
             insuree = self.insuree
+            # policy_holder = self.contract.policy_holder
+            # phn_json = PolicyHolderInsuree.objects.filter(
+            #     insuree_id=insuree.id,
+            #     policy_holder__code=policy_holder.code,
+            #     policy_holder__date_valid_to__isnull=True,
+            #     policy_holder__is_deleted=False,
+            #     date_valid_to__isnull=True,
+            #     is_deleted=False
             contract = self.contract
             phn_json = ContractDetails.objects.filter(
                 insuree=insuree.id,
