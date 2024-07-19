@@ -10,7 +10,6 @@ from contribution_plan.gql.gql_types import ContributionPlanGQLType, Contributio
 from contribution.gql_queries import PremiumGQLType
 from policyholder.gql.gql_types import PolicyHolderGQLType
 from policyholder.models import PolicyHolderInsuree
-from pprint import pprint
 
 
 class ContractGQLType(DjangoObjectType):
