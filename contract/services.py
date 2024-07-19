@@ -89,8 +89,8 @@ class Contract(object):
                 sanction_exist = PaymentPenaltyAndSanction.objects.filter(
                     payment__contract__policy_holder=policy_holder, penalty_type='Sanction', 
                     status__lt=PaymentPenaltyAndSanction.PENALTY_APPROVED).first()
-                logger.debug(f"====  Contract : create : sanction_exist : {sanction_exist.id}")
                 if sanction_exist:
+                    logger.debug(f"====  Contract : create : sanction_exist : {sanction_exist.id}")
                     logger.debug("====  Contract : create : contract creation failed, Sanction is not approved!")
                     raise Exception("contract creation failed, Sanction is not approved!")
 
