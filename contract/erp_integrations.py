@@ -3,7 +3,9 @@ import requests
 import logging
 from contract.models import Contract, ContractDetails
 from payment.models import Payment
-
+from contract.apps import MODULE_NAME
+from core.models import ErpApiFailedLogs
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +31,11 @@ def erp_submit_contract_mapping_data(customer_id, declaration_date, invoice):
     }
     return mapping_dict
 
-def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, received_amount):
+def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, expected_amount):
     mapping_dict = {
         "journal_id": journel_id,
         "payment_method_line_id": payment_method_lines_id,
-        "amount": received_amount
+        "amount": expected_amount
     }
     return mapping_dict
 
@@ -42,7 +44,7 @@ def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, recei
 def filter_null_values(data):
     return {k: v for k, v in data.items() if v is not None}
 
-def erp_submit_contract(id):
+def erp_submit_contract(id, user):
     logger.debug("====== erp_create_update_contract - start =======")
 
     contract = Contract.objects.select_related('policy_holder').filter(id=id).first()
@@ -77,9 +79,11 @@ def erp_submit_contract(id):
         logger.debug(f"======Contract prepared data: {contract_data}")
 
         if contract.erp_invoice_access_id:
+            action = "Update Contract"
             url = f'{erp_url}/update/invoice/{contract.erp_invoice_access_id}'
             logger.debug(f"====== Updating invoice at URL: {url} ======")
         else:
+            action = "Create Contract"
             url = f'{erp_url}/create/invoice'
             logger.debug(f"====== Creating invoice at URL: {url} ======")
 
@@ -105,6 +109,21 @@ def erp_submit_contract(id):
 
             logger.debug(f"Post invoice response: {post_response.json()}")
         else:
+            failed_data = {
+                "module": MODULE_NAME,
+                "contract": contract,
+                "action": action,
+                "response_status_code": response.status_code,
+                "response_json": response_json,
+                "request_url": url,
+                "message": response.text,
+                "request_data": contract_data,
+                "resync_status": 0,
+                "created_by": user
+            }
+            logs_response = ErpApiFailedLogs.objects.create(**failed_data)
+            if logs_response.response_status_code == 200:
+                logger.debug("ERP API Failed log saved successfully")
             logger.error(
                 f"Failed to submit contract data. Status code: {response.status_code}, Response: {response.text}")
             return False
@@ -177,7 +196,7 @@ def erp_payment_contract(data):
         return False
 
     contract_payment_data = erp_contract_payment_mapping_data(journal_id, payment_method_lines_id,
-                                                              payment_data['received_amount'])
+                                                              payment_data['expected_amount'])
     contract_payment_data = filter_null_values(contract_payment_data)
 
     logger.debug(f"==========erp_create_update_contract - json prepared Data : {contract_payment_data}========")
@@ -190,6 +209,18 @@ def erp_payment_contract(data):
     response_json = response.json()
 
     if response.status_code != 200:
+        failed_data = {
+            "module": MODULE_NAME,
+            "action": "Create contract payment",
+            "response_status_code": response.status_code,
+            "response_json": response_json,
+            "request_url": url,
+            "message": response.text,
+            "request_data": contract_payment_data,
+        }
+        logs_response = ErpApiFailedLogs.objects.create(**failed_data)
+        if logs_response.response_status_code == 200:
+            logger.debug("ERP API Failed log saved successfully")
         logger.error(f"Failed to register payment: {response.status_code} - {response.text}")
         return False
 

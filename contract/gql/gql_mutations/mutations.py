@@ -151,7 +151,7 @@ class ContractApproveMutationMixin:
     def approve_contract(cls, user, contract):
         contract_service = ContractService(user=user)
         output_data = contract_service.approve(contract=contract)
-        erp_submit_contract(contract['id'])
+        erp_submit_contract(contract['id'], user)
         return output_data
 
 
