@@ -86,6 +86,22 @@ class Contract(object):
             if contract['policy_holder_id']:
                 logger.debug(f"====  Contract : create : policy_holder : {contract['policy_holder_id']}")
                 policy_holder = PolicyHolder.objects.filter(id=contract['policy_holder_id']).first()
+                policy_holder_insurees = PolicyHolderInsuree.objects.filter(policy_holder=contract['policy_holder_id'])
+                for policy_holder_insuree in policy_holder_insurees:
+                    json_ext = policy_holder_insuree.json_ext
+                    if json_ext:
+                        calculation_rule = json_ext.get('calculation_rule')
+                        income = calculation_rule.get('income')
+                        if income:
+                            if calculation_rule:
+                                if not income:
+                                    raise Exception("contract creation failed, without income!")
+                            else:
+                                raise Exception("contract creation failed, without income!")
+                        else:
+                            raise Exception("contract creation failed, without income!")
+                    else:
+                        raise Exception("contract creation failed, without income!")
                 sanction_exist = PaymentPenaltyAndSanction.objects.filter(
                     payment__contract__policy_holder=policy_holder, penalty_type='Sanction', 
                     status__lt=PaymentPenaltyAndSanction.PENALTY_APPROVED).first()
