@@ -147,7 +147,7 @@ def erp_submit_contract(id, user):
     return True
 
 
-def erp_payment_contract(data):
+def erp_payment_contract(data, user):
     logger.debug("====== erp_create_update_contract - start =======")
 
     payment_details = Payment.objects.filter(id=data.id).select_related('contract').first()
@@ -211,12 +211,15 @@ def erp_payment_contract(data):
     if response.status_code != 200:
         failed_data = {
             "module": MODULE_NAME,
+            "payment": payment_details,
             "action": "Create contract payment",
             "response_status_code": response.status_code,
             "response_json": response_json,
             "request_url": url,
             "message": response.text,
             "request_data": contract_payment_data,
+            "resync_status": 0,
+            "created_by": user
         }
         logs_response = ErpApiFailedLogs.objects.create(**failed_data)
         if logs_response.response_status_code == 200:
