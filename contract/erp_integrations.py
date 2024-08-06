@@ -121,9 +121,11 @@ def erp_submit_contract(id, user):
                 "resync_status": 0,
                 "created_by": user
             }
-            logs_response = ErpApiFailedLogs.objects.create(**failed_data)
-            if logs_response.response_status_code == 200:
-                logger.debug("ERP API Failed log saved successfully")
+            try:
+                ErpApiFailedLogs.objects.create(**failed_data)
+                print("ERP API Failed log saved successfully")
+            except Exception as e:
+                print(f"Failed to save ERP API Failed log: {e}")
             logger.error(
                 f"Failed to submit contract data. Status code: {response.status_code}, Response: {response.text}")
             return False
@@ -221,9 +223,11 @@ def erp_payment_contract(data, user):
             "resync_status": 0,
             "created_by": user
         }
-        logs_response = ErpApiFailedLogs.objects.create(**failed_data)
-        if logs_response.response_status_code == 200:
-            logger.debug("ERP API Failed log saved successfully")
+        try:
+            ErpApiFailedLogs.objects.create(**failed_data)
+            print("ERP API Failed log saved successfully")
+        except Exception as e:
+            print(f"Failed to save ERP API Failed log: {e}")
         logger.error(f"Failed to register payment: {response.status_code} - {response.text}")
         return False
 
