@@ -123,9 +123,9 @@ def erp_submit_contract(id, user):
             }
             try:
                 ErpApiFailedLogs.objects.create(**failed_data)
-                print("ERP API Failed log saved successfully")
+                logger.info("ERP API Failed log saved successfully")
             except Exception as e:
-                print(f"Failed to save ERP API Failed log: {e}")
+                logger.error(f"Failed to save ERP API Failed log: {e}")
             logger.error(
                 f"Failed to submit contract data. Status code: {response.status_code}, Response: {response.text}")
             return False
@@ -225,9 +225,9 @@ def erp_payment_contract(data, user):
         }
         try:
             ErpApiFailedLogs.objects.create(**failed_data)
-            print("ERP API Failed log saved successfully")
+            logger.info("ERP API Failed log saved successfully")
         except Exception as e:
-            print(f"Failed to save ERP API Failed log: {e}")
+            logger.error(f"Failed to save ERP API Failed log: {e}")
         logger.error(f"Failed to register payment: {response.status_code} - {response.text}")
         return False
 
