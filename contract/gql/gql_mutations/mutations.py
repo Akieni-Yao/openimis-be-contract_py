@@ -151,7 +151,11 @@ class ContractApproveMutationMixin:
     def approve_contract(cls, user, contract):
         contract_service = ContractService(user=user)
         output_data = contract_service.approve(contract=contract)
-        erp_submit_contract(contract['id'], user)
+        try:
+            erp_submit_contract(contract['id'], user)
+            print("ERP contract submission was successful.")
+        except Exception as e:
+            print(f"Failed to submit ERP contract: {e}")
         return output_data
 
 

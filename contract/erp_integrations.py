@@ -104,7 +104,7 @@ def erp_submit_contract(id, user):
             post_response = requests.post(post_invoice_url, headers=headers, verify=False)
 
             if post_response.status_code != 200:
-                logger.error("Failed to update payment Penalty")
+                logger.error("Failed to post invoice")
                 return False
 
             logger.debug(f"Post invoice response: {post_response.json()}")
