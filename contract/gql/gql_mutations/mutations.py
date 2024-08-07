@@ -1,3 +1,4 @@
+import logging
 from core import TimeUtils
 from core.schema import OpenIMISMutation
 from core.gql.gql_mutations import ObjectNotExistException
@@ -9,7 +10,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from contract.erp_integrations import erp_submit_contract
 
-
+logger = logging.getLogger(__name__)
 class ContractCreateMutationMixin:
 
     @property
@@ -151,7 +152,11 @@ class ContractApproveMutationMixin:
     def approve_contract(cls, user, contract):
         contract_service = ContractService(user=user)
         output_data = contract_service.approve(contract=contract)
-        erp_submit_contract(contract['id'], user)
+        try:
+            erp_submit_contract(contract['id'], user)
+            logger.info("ERP contract submission was successful.")
+        except Exception as e:
+            logger.error(f"Failed to submit ERP contract: {e}")
         return output_data
 
 
