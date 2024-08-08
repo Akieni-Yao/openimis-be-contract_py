@@ -212,7 +212,7 @@ def erp_payment_contract(data, user):
 
     if response.status_code != 200:
         failed_data = {
-            "module": MODULE_NAME,
+            "module": 'Payment',
             "payment": payment_details,
             "action": "Create contract payment",
             "response_status_code": response.status_code,
