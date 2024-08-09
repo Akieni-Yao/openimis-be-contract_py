@@ -102,10 +102,30 @@ def erp_submit_contract(id, user):
             post_invoice_url = f'{erp_url}/post/invoice/{response_json.get("invoice_access_id")}'
             logger.debug(f"Posting invoice at URL: {post_invoice_url}")
             post_response = requests.post(post_invoice_url, headers=headers, verify=False)
+            post_response_json = post_response.json()
 
             if post_response.status_code != 200:
+                failed_data = {
+                    "module": 'contract-post-invoice',
+                    "contract": contract,
+                    "action": 'post-invoice',
+                    "response_status_code": post_response.status_code,
+                    "response_json": post_response_json,
+                    "request_url": post_invoice_url,
+                    "message": post_response.text,
+                    "request_data": response_json.get("invoice_access_id"),
+                    "resync_status": 0,
+                    "created_by": user
+                }
+                try:
+                    ErpApiFailedLogs.objects.create(**failed_data)
+                    logger.info("ERP API Failed log saved successfully")
+                except Exception as e:
+                    logger.error(f"Failed to save ERP API Failed log: {e}")
                 logger.error("Failed to post invoice")
                 return False
+            else:
+                logger.info("ERP Contract ==== post invoice succesfully")
 
             logger.debug(f"Post invoice response: {post_response.json()}")
         else:
