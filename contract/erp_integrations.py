@@ -27,7 +27,7 @@ def erp_submit_contract_mapping_data(customer_id, declaration_date, invoice):
     mapping_dict = {
         "customer_id": customer_id,
         "invoice_date": declaration_date,
-        "invoice_lines" : invoice
+        "invoice_lines": invoice
     }
     return mapping_dict
 
@@ -232,7 +232,7 @@ def erp_payment_contract(data, user):
 
     if response.status_code != 200:
         failed_data = {
-            "module": 'Payment',
+            "module": 'contract-payment-register',
             "payment": payment_details,
             "action": "Create contract payment",
             "response_status_code": response.status_code,

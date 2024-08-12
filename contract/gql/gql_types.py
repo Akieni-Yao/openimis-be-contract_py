@@ -92,12 +92,6 @@ class ContractDetailsGQLType(DjangoObjectType):
                 date_valid_to__isnull=True,
                 is_deleted=False
             ).first()
-            # contract = self.contract
-            # phn_json = ContractDetails.objects.filter(
-            #     insuree=insuree.id,
-            #     contribution_plan_bundle=cpb.id,
-            #     contract=contract.id,
-            #     is_deleted=False,
             if phn_json and phn_json.json_ext:
                 json_data = phn_json.json_ext
                 ei = float(json_data.get('calculation_rule', {}).get('income', 0))
