@@ -177,7 +177,7 @@ def erp_payment_contract(data, user):
         logger.error("No payment details found.")
         return False
 
-    payment_data = {'received_amount': payment_details.received_amount}
+    payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
     # Fetching journal details
     url = f'{erp_url}/get/journals'
