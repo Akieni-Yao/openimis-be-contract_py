@@ -1,5 +1,7 @@
 import logging
 from core import TimeUtils
+from core.constants import CONTRACT_CREATION_NT
+from core.notification_service import create_camu_notification
 from core.schema import OpenIMISMutation
 from core.gql.gql_mutations import ObjectNotExistException
 from contract.services import Contract as ContractService, \
@@ -32,6 +34,7 @@ class ContractCreateMutationMixin:
         output = cls.create_contract(user=user, contract=data)
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
+            create_camu_notification(CONTRACT_CREATION_NT, contract)
             ContractMutation.object_mutated(user, client_mutation_id=client_mutation_id, contract=contract)
             return None
         else:
