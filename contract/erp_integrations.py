@@ -3,7 +3,9 @@ import requests
 import logging
 from contract.models import Contract, ContractDetails
 from payment.models import Payment
-
+from contract.apps import MODULE_NAME
+from core.models import ErpApiFailedLogs
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +27,15 @@ def erp_submit_contract_mapping_data(customer_id, declaration_date, invoice):
     mapping_dict = {
         "customer_id": customer_id,
         "invoice_date": declaration_date,
-        "invoice_lines" : invoice
+        "invoice_lines": invoice
     }
     return mapping_dict
 
-def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, received_amount):
+def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, expected_amount):
     mapping_dict = {
         "journal_id": journel_id,
         "payment_method_line_id": payment_method_lines_id,
-        "amount": received_amount
+        "amount": expected_amount
     }
     return mapping_dict
 
@@ -42,7 +44,7 @@ def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, recei
 def filter_null_values(data):
     return {k: v for k, v in data.items() if v is not None}
 
-def erp_submit_contract(id):
+def erp_submit_contract(id, user):
     logger.debug("====== erp_create_update_contract - start =======")
 
     contract = Contract.objects.select_related('policy_holder').filter(id=id).first()
@@ -77,9 +79,11 @@ def erp_submit_contract(id):
         logger.debug(f"======Contract prepared data: {contract_data}")
 
         if contract.erp_invoice_access_id:
+            action = "Update Contract"
             url = f'{erp_url}/update/invoice/{contract.erp_invoice_access_id}'
             logger.debug(f"====== Updating invoice at URL: {url} ======")
         else:
+            action = "Create Contract"
             url = f'{erp_url}/create/invoice'
             logger.debug(f"====== Creating invoice at URL: {url} ======")
 
@@ -98,13 +102,50 @@ def erp_submit_contract(id):
             post_invoice_url = f'{erp_url}/post/invoice/{response_json.get("invoice_access_id")}'
             logger.debug(f"Posting invoice at URL: {post_invoice_url}")
             post_response = requests.post(post_invoice_url, headers=headers, verify=False)
+            post_response_json = post_response.json()
 
             if post_response.status_code != 200:
-                logger.error("Failed to update payment Penalty")
+                failed_data = {
+                    "module": 'contract-post-invoice',
+                    "contract": contract,
+                    "action": 'post-invoice',
+                    "response_status_code": post_response.status_code,
+                    "response_json": post_response_json,
+                    "request_url": post_invoice_url,
+                    "message": post_response.text,
+                    "request_data": response_json.get("invoice_access_id"),
+                    "resync_status": 0,
+                    "created_by": user
+                }
+                try:
+                    ErpApiFailedLogs.objects.create(**failed_data)
+                    logger.info("ERP API Failed log saved successfully")
+                except Exception as e:
+                    logger.error(f"Failed to save ERP API Failed log: {e}")
+                logger.error("Failed to post invoice")
                 return False
+            else:
+                logger.info("ERP Contract ==== post invoice succesfully")
 
             logger.debug(f"Post invoice response: {post_response.json()}")
         else:
+            failed_data = {
+                "module": MODULE_NAME,
+                "contract": contract,
+                "action": action,
+                "response_status_code": response.status_code,
+                "response_json": response_json,
+                "request_url": url,
+                "message": response.text,
+                "request_data": contract_data,
+                "resync_status": 0,
+                "created_by": user
+            }
+            try:
+                ErpApiFailedLogs.objects.create(**failed_data)
+                logger.info("ERP API Failed log saved successfully")
+            except Exception as e:
+                logger.error(f"Failed to save ERP API Failed log: {e}")
             logger.error(
                 f"Failed to submit contract data. Status code: {response.status_code}, Response: {response.text}")
             return False
@@ -128,7 +169,7 @@ def erp_submit_contract(id):
     return True
 
 
-def erp_payment_contract(data):
+def erp_payment_contract(data, user):
     logger.debug("====== erp_create_update_contract - start =======")
 
     payment_details = Payment.objects.filter(id=data.id).select_related('contract').first()
@@ -136,7 +177,7 @@ def erp_payment_contract(data):
         logger.error("No payment details found.")
         return False
 
-    payment_data = {'received_amount': payment_details.received_amount}
+    payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
     # Fetching journal details
     url = f'{erp_url}/get/journals'
@@ -177,7 +218,7 @@ def erp_payment_contract(data):
         return False
 
     contract_payment_data = erp_contract_payment_mapping_data(journal_id, payment_method_lines_id,
-                                                              payment_data['received_amount'])
+                                                              payment_data['expected_amount'])
     contract_payment_data = filter_null_values(contract_payment_data)
 
     logger.debug(f"==========erp_create_update_contract - json prepared Data : {contract_payment_data}========")
@@ -190,6 +231,23 @@ def erp_payment_contract(data):
     response_json = response.json()
 
     if response.status_code != 200:
+        failed_data = {
+            "module": 'contract-payment-register',
+            "payment": payment_details,
+            "action": "Create contract payment",
+            "response_status_code": response.status_code,
+            "response_json": response_json,
+            "request_url": url,
+            "message": response.text,
+            "request_data": contract_payment_data,
+            "resync_status": 0,
+            "created_by": user
+        }
+        try:
+            ErpApiFailedLogs.objects.create(**failed_data)
+            logger.info("ERP API Failed log saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save ERP API Failed log: {e}")
         logger.error(f"Failed to register payment: {response.status_code} - {response.text}")
         return False
 

@@ -92,7 +92,6 @@ class ContractDetailsGQLType(DjangoObjectType):
                 date_valid_to__isnull=True,
                 is_deleted=False
             ).first()
-
             if phn_json and phn_json.json_ext:
                 json_data = phn_json.json_ext
                 ei = float(json_data.get('calculation_rule', {}).get('income', 0))

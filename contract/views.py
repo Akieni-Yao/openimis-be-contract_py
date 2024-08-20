@@ -57,7 +57,7 @@ def generate_multi_contract_excel_data(contract_detail):
 
 
 def multi_contract(request, contract_id):
-    contract_details = ContractDetails.objects.filter(contract_id=contract_id)
+    contract_details = ContractDetails.objects.filter(contract_id=contract_id, is_deleted=False)
     all_contract_data = []
     for detail in contract_details:
         # contract_data = get_contract_custom_field_data(detail)

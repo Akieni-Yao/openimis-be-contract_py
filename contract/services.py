@@ -22,12 +22,12 @@ from contract.models import Contract as ContractModel, \
     ContractContributionPlanDetails as ContractContributionPlanDetailsModel
 from calculation.services import run_calculation_rules
 
-from policyholder.models import PolicyHolderInsuree
+from policyholder.models import PolicyHolderInsuree, PolicyHolder
 from contribution.models import Premium
 from contribution_plan.models import ContributionPlanBundleDetails, ContributionPlan
 
 from policy.models import Policy
-from payment.models import Payment, PaymentDetail
+from payment.models import Payment, PaymentDetail, PaymentPenaltyAndSanction
 from payment.services import update_or_create_payment
 from insuree.models import Insuree, InsureePolicy
 from datetime import datetime
@@ -83,6 +83,33 @@ class Contract(object):
     @check_authentication
     def create(self, contract):
         try:
+            if contract['policy_holder_id']:
+                logger.debug(f"====  Contract : create : policy_holder : {contract['policy_holder_id']}")
+                policy_holder = PolicyHolder.objects.filter(id=contract['policy_holder_id']).first()
+                policy_holder_insurees = PolicyHolderInsuree.objects.filter(policy_holder=contract['policy_holder_id'])
+                for policy_holder_insuree in policy_holder_insurees:
+                    json_ext = policy_holder_insuree.json_ext
+                    if json_ext:
+                        calculation_rule = json_ext.get('calculation_rule')
+                        income = calculation_rule.get('income')
+                        if income:
+                            if calculation_rule:
+                                if not income:
+                                    raise Exception("contract creation failed, without income!")
+                            else:
+                                raise Exception("contract creation failed, without income!")
+                        else:
+                            raise Exception("contract creation failed, without income!")
+                    else:
+                        raise Exception("contract creation failed, without income!")
+                sanction_exist = PaymentPenaltyAndSanction.objects.filter(
+                    payment__contract__policy_holder=policy_holder, penalty_type='Sanction', 
+                    status__lt=PaymentPenaltyAndSanction.PENALTY_APPROVED).first()
+                if sanction_exist:
+                    logger.debug(f"====  Contract : create : sanction_exist : {sanction_exist.id}")
+                    logger.debug("====  Contract : create : contract creation failed, Sanction is not approved!")
+                    raise Exception("contract creation failed, Sanction is not approved!")
+
             incoming_code = generate_contract_code()  # Generate a new unique code
             contract['code'] = incoming_code  # Set the generated code into the contract
             # if check_unique_code(incoming_code):
