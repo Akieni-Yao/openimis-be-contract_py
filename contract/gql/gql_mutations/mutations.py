@@ -34,7 +34,11 @@ class ContractCreateMutationMixin:
         output = cls.create_contract(user=user, contract=data)
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
-            create_camu_notification(CONTRACT_CREATION_NT, contract)
+            try:
+                create_camu_notification(CONTRACT_CREATION_NT, contract)
+                logger.info("Sent Notification.")
+            except Exception as e:
+                logger.error(f"Failed to call send notification: {e}")
             ContractMutation.object_mutated(user, client_mutation_id=client_mutation_id, contract=contract)
             return None
         else:
