@@ -104,7 +104,7 @@ def erp_submit_contract(id, user):
             post_response = requests.post(post_invoice_url, headers=headers, verify=False)
             post_response_json = post_response.json()
 
-            if post_response.status_code != 200:
+            if response.status_code not in [200, 201]:
                 failed_data = {
                     "module": 'contract-post-invoice',
                     "contract": contract,
@@ -230,7 +230,7 @@ def erp_payment_contract(data, user):
     response = requests.post(url, headers=headers, json=contract_payment_data, verify=False)
     response_json = response.json()
 
-    if response.status_code != 200:
+    if response.status_code not in [200, 201]:
         failed_data = {
             "module": 'contract-payment-register',
             "payment": payment_details,
