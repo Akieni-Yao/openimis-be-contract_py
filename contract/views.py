@@ -3,7 +3,7 @@ import json
 import logging
 
 import pandas as pd
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 from contract.models import ContractDetails
 from contribution_plan.models import ContributionPlanBundleDetails
@@ -157,81 +157,92 @@ def update_contract_salaries(request, contract_id):
     total_salaries_updated = 0
     total_validation_errors = 0
 
-    df = pd.read_excel(file)
-    df.columns = [col.strip() for col in df.columns]
-    org_columns = df.columns
-    rename_columns = {
-        "Gross Salary": HEADER_INCOME,
-    }
-    df.rename(columns=rename_columns, inplace=True)
+    try:
+        df = pd.read_excel(file)
+        df.columns = [col.strip() for col in df.columns]
+        rename_columns = {
+            "Gross Salary": HEADER_INCOME,
+        }
+        df.rename(columns=rename_columns, inplace=True)
 
-    errors = []
-    logger.debug("Importing %s lines", len(df))
+        errors = []
+        logger.debug("Importing %s lines", len(df))
 
-    # Output data preparation
-    output = io.BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    processed_data = []
+        # Output data preparation
+        output = io.BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+        processed_data = []
 
-    # Fetch existing contract details for the contract_id
-    exist_contract_details = ContractDetails.objects.filter(contract_id=contract_id, is_deleted=False)
-    # Index existing contract details by chf_id for quick lookup
-    contract_details_by_chf_id = {detail.insuree.chf_id: detail for detail in exist_contract_details}
+        # Fetch existing contract details for the contract_id
+        exist_contract_details = ContractDetails.objects.filter(contract_id=contract_id, is_deleted=False)
+        # Index existing contract details by chf_id for quick lookup
+        contract_details_by_chf_id = {detail.insuree.chf_id: detail for detail in exist_contract_details}
 
-    # Iterate over each row in the Excel file
-    for index, line in df.iterrows():
-        total_lines += 1
-        logger.debug("Importing line %s: %s", total_lines, line)
+        # Iterate over each row in the Excel file
+        for index, line in df.iterrows():
+            total_lines += 1
+            logger.debug("Importing line %s: %s", total_lines, line)
 
-        # Extract the chf_id and new salary
-        chf_id = line.get("Numéro CAMU temporaire")
-        new_gross_salary = line.get("Gross Salary")
+            # Extract the chf_id and new salary
+            chf_id = line.get("Numéro CAMU temporaire")
+            new_gross_salary = line.get("Gross Salary")
 
-        if chf_id in contract_details_by_chf_id:
-            contract_detail = contract_details_by_chf_id[chf_id]
-            current_salary = contract_detail.json_param.get('income') if contract_detail.json_param else None
+            if chf_id in contract_details_by_chf_id:
+                contract_detail = contract_details_by_chf_id[chf_id]
+                current_salary = contract_detail.json_param.get('income') if contract_detail.json_param else None
 
-            # Check if the salary has changed
-            if current_salary != new_gross_salary:
-                try:
-                    json_data = update_salary(contract_detail.json_ext, new_gross_salary)
-                    # # Update only if salary has changed
-                    # json_data = contract_detail.json_param or {}
-                    # json_data['income'] = new_gross_salary
-                    contract_detail.json_ext = json_data
-                    contract_detail.save()
+                # Check if the salary has changed
+                if current_salary != new_gross_salary:
+                    try:
+                        json_data = update_salary(contract_detail.json_ext, new_gross_salary)
+                        # # Update only if salary has changed
+                        # json_data = contract_detail.json_param or {}
+                        # json_data['income'] = new_gross_salary
+                        contract_detail.json_ext = json_data
+                        contract_detail.save()
 
-                    total_salaries_updated += 1
-                    status = "Success"
-                    logger.info("Updated salary for chf_id %s", chf_id)
-                except Exception as e:
-                    errors.append(f"Error updating salary for chf_id {chf_id}: {str(e)}")
-                    total_validation_errors += 1
-                    status = f"Error: {str(e)}"
-                    logger.error("Error processing line %s: %s", total_lines, str(e))
+                        total_salaries_updated += 1
+                        status = "Success"
+                        logger.info("Updated salary for chf_id %s", chf_id)
+                    except Exception as e:
+                        errors.append(f"Error updating salary for chf_id {chf_id}: {str(e)}")
+                        total_validation_errors += 1
+                        status = f"Error: {str(e)}"
+                        logger.error("Error processing line %s: %s", total_lines, str(e))
+                else:
+                    # No update needed if salary has not changed
+                    status = "No Change"
+                    logger.info("No change in salary for chf_id %s", chf_id)
             else:
-                # No update needed if salary has not changed
-                status = "No Change"
-                logger.info("No change in salary for chf_id %s", chf_id)
+                errors.append(f"No contract detail found for chf_id {chf_id}")
+                total_validation_errors += 1
+                status = "Error: Not Found"
+                logger.warning("No contract detail found for chf_id %s", chf_id)
+
+            # Append the current line data with status to processed_data for output
+            line_data = line.to_dict()
+            line_data["Status"] = status
+            processed_data.append(line_data)
+
+        # Create DataFrame for processed data with status
+        processed_df = pd.DataFrame(processed_data)
+
+        # Write processed data with status to output Excel file
+        processed_df.to_excel(writer, index=False, header=True)
+        writer.save()
+        output.seek(0)
+
+        # If there are no errors, return success
+        if not errors:
+            return JsonResponse({"success": True, "message": None})
         else:
-            errors.append(f"No contract detail found for chf_id {chf_id}")
-            total_validation_errors += 1
-            status = "Error: Not Found"
-            logger.warning("No contract detail found for chf_id %s", chf_id)
+            # Construct error message
+            error_message = f"{total_validation_errors} not updated - errors: {', '.join(errors)}"
+            return JsonResponse({"success": False, "message": error_message})
 
-        # Append the current line data with status to processed_data for output
-        line_data = line.to_dict()
-        line_data["Status"] = status
-        processed_data.append(line_data)
-
-    # Create DataFrame for processed data with status
-    processed_df = pd.DataFrame(processed_data)
-    processed_df.to_excel(writer, index=False, header=True)
-    writer.save()
-    output.seek(0)
-    response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="updated_contract_salaries.xlsx"'
-    return response
+    except Exception as e:
+        logger.error("An unexpected error occurred: %s", str(e))
+        return JsonResponse({"success": False, "message": str(e)})
 
 
 def update_salary(json_data, new_income):
