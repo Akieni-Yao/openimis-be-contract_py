@@ -1,16 +1,17 @@
 import json
+import os
 import requests
 import logging
 from contract.models import Contract, ContractDetails
 from payment.models import Payment
 from contract.apps import MODULE_NAME
-from core.models import ErpApiFailedLogs
+from core.models import ErpApiFailedLogs, ErpOperations
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
-erp_url = "https://camu-staging-13483170.dev.odoo.com"
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
 
 headers = {
     'Content-Type': 'application/json',
@@ -65,10 +66,12 @@ def erp_submit_contract(id, user):
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
         amount = contract.amount_notified
 
+        erp_operation_contract = ErpOperations.objects.filter(code='CONTRACT').first()
+
         invoice = [{
-            "product_id": 3951,
+            "product_id": erp_operation_contract.erp_id,
             "label": product_level,
-            # "account_id": account_receivable_id, Not required as per discussion
+            "account_id": erp_operation_contract.accounting_id,
             "quantity": 1,
             "unit_price": amount
         }]
