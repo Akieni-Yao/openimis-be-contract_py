@@ -4,6 +4,7 @@ import logging
 
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
+from rest_framework.decorators import api_view
 
 from contract.models import ContractDetails
 from contribution_plan.models import ContributionPlanBundleDetails
@@ -147,6 +148,7 @@ def send_contract(contract_id):
     return excel_buffer.getvalue()
 
 
+@api_view(["POST"])
 def update_contract_salaries(request, contract_id):
     file = request.FILES["file"]
     user_id = request.user.id_for_audit
