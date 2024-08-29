@@ -2,6 +2,9 @@ import json
 import os
 import requests
 import logging
+
+from django.http import JsonResponse
+
 from contract.models import Contract, ContractDetails
 from payment.models import Payment
 from contract.apps import MODULE_NAME
@@ -18,9 +21,8 @@ headers = {
     'Tmr-Api-Key': 'test'
 }
 headers1 = {
-    'Payment-Type': 'receive',
-    'Tmr-Api-Key': 'test',
-    'Cookie': 'frontend_lang=en_US; session_id=5f25f27bdbbf37a94d163d2fb1377337c1be90f6'
+  'Payment-Type': 'send',
+  'Tmr-Api-Key': 'test'
 }
 
 
@@ -257,3 +259,15 @@ def erp_payment_contract(data, user):
     logger.debug(f"Register payment response: {response_json}")
     logger.debug("====== erp_create_update_contract - end =======")
     return True
+
+
+def erp_payment_method_line(request, journal_id):
+    if journal_id:
+        url = f'{erp_url}/get/payment-method/{journal_id}'
+        logger.debug(f"====== get_payment_method : url : {url} ======")
+        response = requests.get(url, headers=headers1, verify=False)
+
+        if response.status_code == 200:
+            return JsonResponse(response.json())
+
+    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
