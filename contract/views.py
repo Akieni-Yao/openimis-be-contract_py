@@ -167,7 +167,7 @@ def send_contract(contract_id):
     return excel_buffer.getvalue()
 
 
-@api_view(["POST"])
+# @api_view(["POST"])
 def update_contract_salaries(request, contract_id):
     file = request.FILES["file"]
     core_username = request.user.username
