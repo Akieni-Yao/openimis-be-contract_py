@@ -92,12 +92,13 @@ def get_contract_custom_field_data(detail):
     conti_plan = cpbd.contribution_plan if cpbd else None
     ercp = 0
     eecp = 0
+
     if conti_plan and conti_plan.json_ext:
         json_data = conti_plan.json_ext
         calculation_rule = json_data.get('calculation_rule')
         if calculation_rule:
-            ercp = float(calculation_rule.get('employerContribution', 0))
-            eecp = float(calculation_rule.get('employeeContribution', 0))
+            ercp = int(float(calculation_rule.get('employerContribution', 0)))
+            eecp = int(float(calculation_rule.get('employeeContribution', 0)))
 
     insuree = detail.insuree
     policy_holder = detail.contract.policy_holder
@@ -106,31 +107,47 @@ def get_contract_custom_field_data(detail):
                                                   policy_holder__is_deleted=False, date_valid_to__isnull=True,
                                                   is_deleted=False).first()
     ei = 0
+
     if phn_json and phn_json.json_ext:
         json_data = phn_json.json_ext
-        ei = float(json_data.get('calculation_rule', {}).get('income', 0))
-    employer_contribution = round(ei * ercp / 100, 2) if ercp and ei is not None else 0
-    salary_share = round(ei * eecp / 100, 2) if eecp and ei is not None else 0
+        ei = int(float(json_data.get('calculation_rule', {}).get('income', 0)))
+
+    employer_contribution = (ei * ercp // 100) if ercp and ei is not None else 0
+    salary_share = (ei * eecp // 100) if eecp and ei is not None else 0
     total = salary_share + employer_contribution
-    custom_field_data = {'total': total if total is not None else 0,
-                         'employerContribution': employer_contribution if employer_contribution is not None else 0,
-                         'salaryShare': salary_share if salary_share is not None else 0, }
-    contract_data = {'id': detail.id, 'jsonExt': detail.json_ext or '',  # Set empty string if json_ext is None
-                     'contract': {'id': detail.contract.id if detail.contract else '',
-                                  # Set empty string if contract is None
-                                  },
-                     'insuree': {'id': insuree.id if insuree else '',  # Set empty string if insuree is None
-                                 'uuid': insuree.uuid if insuree else '', 'chfId': insuree.chf_id if insuree else '',
-                                 'lastName': insuree.last_name if insuree else '',
-                                 'otherNames': insuree.other_names if insuree else '', },
-                     'contributionPlanBundle': {'id': cpb.id if cpb else '',  # Set empty string if cpb is None
-                                                'code': cpb.code if cpb else '', 'name': cpb.name if cpb else '',
-                                                'periodicity': cpb.periodicity if cpb else '',
-                                                'dateValidFrom': cpb.date_valid_from if cpb else '',
-                                                'dateValidTo': cpb.date_valid_to if cpb else '',
-                                                'isDeleted': cpb.is_deleted if cpb else '',
-                                                'replacementUuid': cpb.replacement_uuid if cpb else '', },
-                     'customField': custom_field_data, }
+
+    custom_field_data = {
+        'total': total if total is not None else 0,
+        'employerContribution': employer_contribution if employer_contribution is not None else 0,
+        'salaryShare': salary_share if salary_share is not None else 0,
+    }
+
+    contract_data = {
+        'id': detail.id,
+        'jsonExt': detail.json_ext or '',  # Set empty string if json_ext is None
+        'contract': {
+            'id': detail.contract.id if detail.contract else '',  # Set empty string if contract is None
+        },
+        'insuree': {
+            'id': insuree.id if insuree else '',  # Set empty string if insuree is None
+            'uuid': insuree.uuid if insuree else '',
+            'chfId': insuree.chf_id if insuree else '',
+            'lastName': insuree.last_name if insuree else '',
+            'otherNames': insuree.other_names if insuree else '',
+        },
+        'contributionPlanBundle': {
+            'id': cpb.id if cpb else '',  # Set empty string if cpb is None
+            'code': cpb.code if cpb else '',
+            'name': cpb.name if cpb else '',
+            'periodicity': cpb.periodicity if cpb else '',
+            'dateValidFrom': cpb.date_valid_from if cpb else '',
+            'dateValidTo': cpb.date_valid_to if cpb else '',
+            'isDeleted': cpb.is_deleted if cpb else '',
+            'replacementUuid': cpb.replacement_uuid if cpb else '',
+        },
+        'customField': custom_field_data,
+    }
+
     return contract_data
 
 
@@ -196,7 +213,8 @@ def update_contract_salaries(request, contract_id):
 
                 if chf_id in contract_details_by_chf_id:
                     contract_detail = contract_details_by_chf_id[chf_id]
-                    current_salary = int(contract_detail.json_ext.get('calculation_rule', {}).get('income', 0)) if contract_detail.json_ext else None
+                    current_salary = int(contract_detail.json_ext.get('calculation_rule', {}).get('income',
+                                                                                                  0)) if contract_detail.json_ext else None
                     logger.debug("Current salary for chf_id %s is %s", chf_id, current_salary)
 
                     # Check if the salary has changed
