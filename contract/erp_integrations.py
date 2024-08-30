@@ -2,7 +2,6 @@ import json
 import os
 import requests
 import logging
-import pprint
 
 from django.http import JsonResponse
 
