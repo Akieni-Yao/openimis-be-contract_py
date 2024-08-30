@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import logging
+import pprint
 
 from django.http import JsonResponse
 
@@ -184,43 +185,17 @@ def erp_payment_contract(data, user):
 
     payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
-    # Fetching journal details
-    url = f'{erp_url}/get/journals'
-    logger.debug(f"====== get_journal : url : {url} ======")
-    response = requests.get(url, headers=headers1, verify=False)
+    journal_id = payment_details.bank.journaux_id
+    payment_method_response = erp_payment_method_line(None, journal_id=journal_id)
 
-    if response.status_code != 200:
-        logger.error(f"Failed to fetch journals: {response.status_code} - {response.text}")
+    # Ensure that the payment method lines data is valid
+    if payment_method_response.get('status') != 200:
+        logger.error("Journal ID or Payment Method Lines data not found.")
         return False
 
-    journal_data = response.json()
-    journal_id = None
-    payment_method_lines_id = None
-
-    for details in journal_data.get('journals', []):
-        if details['id'] == 33:
-            journal_id = details['id']
-            url = f'{erp_url}/get/payment-method/{journal_id}'
-            logger.debug(f"====== get_payment_method : url : {url} ======")
-            response = requests.get(url, headers=headers1, verify=False)
-
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch payment method: {response.status_code} - {response.text}")
-                return False
-
-            payment_method = response.json()
-            payment_method_lines = payment_method.get('payment_method_lines', [])
-
-            if not payment_method_lines:
-                logger.error("No payment method lines found.")
-                return False
-
-            payment_method_lines_id = payment_method_lines[0].get('id')
-            break
-
-    if not journal_id or not payment_method_lines_id:
-        logger.error("Journal ID or Payment Method Lines ID not found.")
-        return False
+    # Extract the first payment method line ID (assuming that's what you need)
+    payment_method_line = payment_method_response.get('payment_method_lines')
+    payment_method_lines_id = payment_method_line[0]['id']
 
     contract_payment_data = erp_contract_payment_mapping_data(journal_id, payment_method_lines_id,
                                                               payment_data['expected_amount'])
@@ -268,6 +243,6 @@ def erp_payment_method_line(request, journal_id):
         response = requests.get(url, headers=headers1, verify=False)
 
         if response.status_code == 200:
-            return JsonResponse(response.json())
+            return response.json()
 
     return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
