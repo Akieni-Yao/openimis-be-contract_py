@@ -5,6 +5,8 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
+from core.constants import CONTRACT_UPDATE_NT
+from core.notification_service import create_camu_notification
 from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
 
@@ -227,6 +229,11 @@ class Contract(object):
             message="update contract status " + str(historical_record.state)
         )
         updated_contract.save(username=self.user.username)
+        try:
+            create_camu_notification(CONTRACT_UPDATE_NT, updated_contract)
+            logger.info("Sent Notification.")
+        except Exception as e:
+            logger.error(f"Failed to call send notification: {e}")
         uuid_string = f"{updated_contract.id}"
         dict_representation = model_to_dict(updated_contract)
         dict_representation["id"], dict_representation["uuid"] = (str(uuid_string), str(uuid_string))
