@@ -5,7 +5,7 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
-from core.constants import CONTRACT_UPDATE_NT
+from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
 from core.notification_service import create_camu_notification
 from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
@@ -1138,6 +1138,11 @@ class PaymentService(object):
                         create_paymentcode_openkmfolder(payment_code, p)
                     except Exception as e:
                         pass
+                    try:
+                        create_camu_notification(PAYMENT_CREATION_NT, p)
+                        logger.info("Sent Notification.")
+                    except Exception as e:
+                        logger.error(f"Failed to call send notification: {e}")
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
