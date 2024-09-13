@@ -5,6 +5,8 @@ from copy import copy
 from django.core.exceptions import ValidationError
 from django.db import connection
 
+from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
+from core.notification_service import create_camu_notification
 from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
 
@@ -227,6 +229,11 @@ class Contract(object):
             message="update contract status " + str(historical_record.state)
         )
         updated_contract.save(username=self.user.username)
+        try:
+            create_camu_notification(CONTRACT_UPDATE_NT, updated_contract)
+            logger.info("Sent Notification.")
+        except Exception as e:
+            logger.error(f"Failed to call send notification: {e}")
         uuid_string = f"{updated_contract.id}"
         dict_representation = model_to_dict(updated_contract)
         dict_representation["id"], dict_representation["uuid"] = (str(uuid_string), str(uuid_string))
@@ -265,6 +272,11 @@ class Contract(object):
             signal_contract.send(sender=ContractModel, contract=contract_to_submit, user=self.user)
             dict_representation = model_to_dict(contract_to_submit)
             dict_representation["id"], dict_representation["uuid"] = (contract_id, contract_id)
+            try:
+                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_submit)
+                logger.info("Sent Notification.")
+            except Exception as e:
+                logger.error(f"Failed to call send notification: {e}")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             return _output_exception(model_name="Contract", method="submit", exception=exc)
@@ -346,6 +358,11 @@ class Contract(object):
             id_contract_approved = f"{contract_to_approve.id}"
             logger.info(f"contract service approve : id_contract_approved = {id_contract_approved}")
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
+            try:
+                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
+                logger.info("Sent Notification.")
+            except Exception as e:
+                logger.error(f"Failed to call send notification: {e}")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             logger.exception("Exception in approve contract")
@@ -1121,6 +1138,11 @@ class PaymentService(object):
                         create_paymentcode_openkmfolder(payment_code, p)
                     except Exception as e:
                         pass
+                    try:
+                        create_camu_notification(PAYMENT_CREATION_NT, p)
+                        logger.info("Sent Notification.")
+                    except Exception as e:
+                        logger.error(f"Failed to call send notification: {e}")
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)

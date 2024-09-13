@@ -1,25 +1,28 @@
 import json
+import os
 import requests
 import logging
+
+from django.http import JsonResponse
+
 from contract.models import Contract, ContractDetails
 from payment.models import Payment
 from contract.apps import MODULE_NAME
-from core.models import ErpApiFailedLogs
+from core.models import ErpApiFailedLogs, ErpOperations
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
-erp_url = "https://camu-staging-13483170.dev.odoo.com"
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
 
 headers = {
     'Content-Type': 'application/json',
     'Tmr-Api-Key': 'test'
 }
 headers1 = {
-    'Payment-Type': 'receive',
-    'Tmr-Api-Key': 'test',
-    'Cookie': 'frontend_lang=en_US; session_id=5f25f27bdbbf37a94d163d2fb1377337c1be90f6'
+  'Payment-Type': 'send',
+  'Tmr-Api-Key': 'test'
 }
 
 
@@ -65,10 +68,12 @@ def erp_submit_contract(id, user):
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
         amount = contract.amount_notified
 
+        erp_operation_contract = ErpOperations.objects.filter(code='CONTRACT').first()
+
         invoice = [{
-            "product_id": 3951,
+            "product_id": erp_operation_contract.erp_id,
             "label": product_level,
-            # "account_id": account_receivable_id, Not required as per discussion
+            "account_id": erp_operation_contract.accounting_id,
             "quantity": 1,
             "unit_price": amount
         }]
@@ -104,7 +109,7 @@ def erp_submit_contract(id, user):
             post_response = requests.post(post_invoice_url, headers=headers, verify=False)
             post_response_json = post_response.json()
 
-            if post_response.status_code != 200:
+            if response.status_code not in [200, 201]:
                 failed_data = {
                     "module": 'contract-post-invoice',
                     "contract": contract,
@@ -230,7 +235,7 @@ def erp_payment_contract(data, user):
     response = requests.post(url, headers=headers, json=contract_payment_data, verify=False)
     response_json = response.json()
 
-    if response.status_code != 200:
+    if response.status_code not in [200, 201]:
         failed_data = {
             "module": 'contract-payment-register',
             "payment": payment_details,
@@ -254,3 +259,15 @@ def erp_payment_contract(data, user):
     logger.debug(f"Register payment response: {response_json}")
     logger.debug("====== erp_create_update_contract - end =======")
     return True
+
+
+def erp_payment_method_line(request, journal_id):
+    if journal_id:
+        url = f'{erp_url}/get/payment-method/{journal_id}'
+        logger.debug(f"====== get_payment_method : url : {url} ======")
+        response = requests.get(url, headers=headers1, verify=False)
+
+        if response.status_code == 200:
+            return JsonResponse(response.json())
+
+    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})

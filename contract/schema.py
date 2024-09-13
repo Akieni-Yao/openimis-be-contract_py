@@ -1,5 +1,7 @@
 from calendar import monthrange
 from datetime import timedelta
+import os
+import logging
 
 import graphene
 import graphene_django_optimizer as gql_optimizer
@@ -26,6 +28,9 @@ from contract.gql.gql_mutations.contract_details_mutations import CreateContract
     CreateContractDetailByPolicyHolderInsureeMutation
 from contract.apps import ContractConfig
 from contract.utils import filter_amount_contract
+
+logger = logging.getLogger(__name__)
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
 
 
 class Query(graphene.ObjectType):

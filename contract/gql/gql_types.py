@@ -75,29 +75,39 @@ class ContractDetailsGQLType(DjangoObjectType):
                 is_deleted=False
             ).first()
             conti_plan = cpbd.contribution_plan if cpbd else None
+            ercp = 0
+            eecp = 0
             if conti_plan and conti_plan.json_ext:
                 json_data = conti_plan.json_ext
                 calculation_rule = json_data.get('calculation_rule')
                 if calculation_rule:
-                    ercp = float(calculation_rule.get('employerContribution', 0))
-                    eecp = float(calculation_rule.get('employeeContribution', 0))
+                    ercp = int(float(calculation_rule.get('employerContribution', 0)))
+                    eecp = int(float(calculation_rule.get('employeeContribution', 0)))
 
-            insuree = self.insuree
-            policy_holder = self.contract.policy_holder
-            phn_json = PolicyHolderInsuree.objects.filter(
-                insuree_id=insuree.id,
-                policy_holder__code=policy_holder.code,
-                policy_holder__date_valid_to__isnull=True,
-                policy_holder__is_deleted=False,
-                date_valid_to__isnull=True,
-                is_deleted=False
-            ).first()
-            if phn_json and phn_json.json_ext:
-                json_data = phn_json.json_ext
-                ei = float(json_data.get('calculation_rule', {}).get('income', 0))
-            employer_contribution = round(ei * ercp / 100, 2) if ercp and ei is not None else 0
-            salary_share = round(ei * eecp / 100, 2) if eecp and ei is not None else 0
+            # Uncommented lines can be used if needed for future logic
+            # insuree = self.insuree
+            # policy_holder = self.contract.policy_holder
+            # phn_json = PolicyHolderInsuree.objects.filter(
+            #     insuree_id=insuree.id,
+            #     policy_holder__code=policy_holder.code,
+            #     policy_holder__date_valid_to__isnull=True,
+            #     policy_holder__is_deleted=False,
+            #     date_valid_to__isnull=True,
+            #     is_deleted=False
+            # ).first()
+            # if phn_json and phn_json.json_ext:
+            #     json_data = phn_json.json_ext
+            #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
+            self_json = self.json_ext if self.json_ext else None
+            ei = 0
+            if self_json:
+                ei = int(float(self_json.get('calculation_rule', {}).get('income', 0)))
+
+            # Use integer arithmetic to avoid floating-point issues
+            employer_contribution = (ei * ercp // 100) if ercp and ei is not None else 0
+            salary_share = (ei * eecp // 100) if eecp and ei is not None else 0
             total = salary_share + employer_contribution
+
             response = {
                 'total': total,
                 'employerContribution': employer_contribution,
