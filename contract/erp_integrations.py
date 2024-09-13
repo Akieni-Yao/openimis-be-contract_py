@@ -184,17 +184,12 @@ def erp_payment_contract(data, user):
 
     payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
-    journal_id = payment_details.bank.journaux_id
-    payment_method_response = erp_payment_method_line(None, journal_id=journal_id)
+    journal_id = payment_details.received_amount_transaction.get("journauxId", {})
+    payment_method_lines_id = payment_details.received_amount_transaction.get("paymentMethodId", {})
 
-    # Ensure that the payment method lines data is valid
-    if payment_method_response.get('status') != 200:
-        logger.error("Journal ID or Payment Method Lines data not found.")
+    if not journal_id or not payment_method_lines_id:
+        logger.error("Journal ID or Payment Method Lines ID not found.")
         return False
-
-    # Extract the first payment method line ID (assuming that's what you need)
-    payment_method_line = payment_method_response.get('payment_method_lines')
-    payment_method_lines_id = payment_method_line[0]['id']
 
     contract_payment_data = erp_contract_payment_mapping_data(journal_id, payment_method_lines_id,
                                                               payment_data['expected_amount'])
@@ -233,15 +228,3 @@ def erp_payment_contract(data, user):
     logger.debug(f"Register payment response: {response_json}")
     logger.debug("====== erp_create_update_contract - end =======")
     return True
-
-
-def erp_payment_method_line(request, journal_id):
-    if journal_id:
-        url = f'{erp_url}/get/payment-method/{journal_id}'
-        logger.debug(f"====== get_payment_method : url : {url} ======")
-        response = requests.get(url, headers=headers1, verify=False)
-
-        if response.status_code == 200:
-            return response.json()
-
-    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
