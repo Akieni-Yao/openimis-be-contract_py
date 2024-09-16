@@ -643,6 +643,9 @@ class ContractDetails(object):
                                     desired_start_policy_day = last_date_day_to_create_payment + 1
                             
                             desired_month_gap_policy_contract = 4
+                            if ccpd.contribution_plan.benefit_plan.policy_waiting_period:
+                                desired_month_gap_policy_contract = ccpd.contribution_plan.benefit_plan.policy_waiting_period
+
                             # last_date_covered is the policy Start date
                             policy_start_date = contract.date_valid_from.date()
                             policy_start_date = policy_start_date.replace(day=desired_start_policy_day)
@@ -847,6 +850,8 @@ class ContractContributionPlanDetails(object):
                         desired_start_policy_day = last_date_day_to_create_payment + 1
                 # desired_month_gap_policy_contract is a gap of policy from contract
                 desired_month_gap_policy_contract = 2
+                if product.policy_waiting_period:
+                    desired_month_gap_policy_contract = product.policy_waiting_period
 
                 # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -869,6 +874,9 @@ class ContractContributionPlanDetails(object):
                 if ccpd.contract_details.contract.parent:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 1
+                    # if product.policy_waiting_period:
+                    #     desired_month_gap_policy_contract = product.policy_waiting_period
+                    
 
                     # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -880,6 +888,8 @@ class ContractContributionPlanDetails(object):
                 else:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 3
+                    if product.policy_waiting_period:
+                        desired_month_gap_policy_contract = product.policy_waiting_period
 
                     # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -899,6 +909,9 @@ class ContractContributionPlanDetails(object):
                         desired_start_policy_day = last_date_day_to_create_payment + 1
                     
                 desired_month_gap_policy_contract = 4
+                if product.policy_waiting_period:
+                    desired_month_gap_policy_contract = product.policy_waiting_period
+                    
                 print("desired_start_policy_day : ", desired_start_policy_day)
                 # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
