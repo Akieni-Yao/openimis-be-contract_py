@@ -2,7 +2,7 @@ import json
 
 from copy import copy
 
-from django.core.exceptions import ValidationError
+from decimal import Decimal
 from django.db import connection
 
 from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
@@ -523,6 +523,40 @@ class Contract(object):
         except Exception as exc:
             logger.exception("Exception in delete contract")
             return _output_exception(model_name="Contract", method="delete", exception=exc)
+
+    @check_authentication
+    def tipl_contract_evaluation(self, contract):
+        logger.info("Starting contract evaluation")
+
+        try:
+            temp_contract = self.create(contract)
+            logger.info(f"Contract created successfully: {contract}")
+        except Exception as e:
+            logger.error(f"Error during contract creation: {str(e)}")
+            raise
+
+        data = temp_contract.get('data', None)
+        if data:
+            total_amount = data.get('amount_notified', Decimal(0))
+            if total_amount <= 0:
+                logger.warning(f"Negative or zero 'amount_notified': {total_amount}")
+            else:
+                logger.info(f"Positive 'amount_notified': {total_amount}")
+        else:
+            logger.error("No data returned from contract creation")
+            total_amount = Decimal(0)
+
+        logger.debug(f"Total amount notified: {total_amount}")
+
+        try:
+            self.delete(data)
+            logger.info(f"Contract deleted successfully: {contract}")
+        except Exception as e:
+            logger.error(f"Error during contract deletion: {str(e)}")
+            raise
+
+        logger.info("Contract evaluation completed successfully")
+        return total_amount
 
     @check_authentication
     def terminate_contract(self):
