@@ -14,7 +14,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
-erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-15480786.dev.odoo.com")
 
 headers = {
     'Content-Type': 'application/json',
