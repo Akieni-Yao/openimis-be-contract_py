@@ -2,9 +2,11 @@ import json
 
 from copy import copy
 
-from django.core.exceptions import ValidationError
+from decimal import Decimal
 from django.db import connection
 
+from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
+from core.notification_service import create_camu_notification
 from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
 from .config import get_message_counter_contract
 
@@ -227,6 +229,11 @@ class Contract(object):
             message="update contract status " + str(historical_record.state)
         )
         updated_contract.save(username=self.user.username)
+        try:
+            create_camu_notification(CONTRACT_UPDATE_NT, updated_contract)
+            logger.info("Sent Notification.")
+        except Exception as e:
+            logger.error(f"Failed to call send notification: {e}")
         uuid_string = f"{updated_contract.id}"
         dict_representation = model_to_dict(updated_contract)
         dict_representation["id"], dict_representation["uuid"] = (str(uuid_string), str(uuid_string))
@@ -265,6 +272,11 @@ class Contract(object):
             signal_contract.send(sender=ContractModel, contract=contract_to_submit, user=self.user)
             dict_representation = model_to_dict(contract_to_submit)
             dict_representation["id"], dict_representation["uuid"] = (contract_id, contract_id)
+            try:
+                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_submit)
+                logger.info("Sent Notification.")
+            except Exception as e:
+                logger.error(f"Failed to call send notification: {e}")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             return _output_exception(model_name="Contract", method="submit", exception=exc)
@@ -346,6 +358,11 @@ class Contract(object):
             id_contract_approved = f"{contract_to_approve.id}"
             logger.info(f"contract service approve : id_contract_approved = {id_contract_approved}")
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
+            try:
+                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
+                logger.info("Sent Notification.")
+            except Exception as e:
+                logger.error(f"Failed to call send notification: {e}")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             logger.exception("Exception in approve contract")
@@ -508,6 +525,40 @@ class Contract(object):
             return _output_exception(model_name="Contract", method="delete", exception=exc)
 
     @check_authentication
+    def tipl_contract_evaluation(self, contract):
+        logger.info("Starting contract evaluation")
+
+        try:
+            temp_contract = self.create(contract)
+            logger.info(f"Contract created successfully: {contract}")
+        except Exception as e:
+            logger.error(f"Error during contract creation: {str(e)}")
+            raise
+
+        data = temp_contract.get('data', None)
+        if data:
+            total_amount = data.get('amount_notified', Decimal(0))
+            if total_amount <= 0:
+                logger.warning(f"Negative or zero 'amount_notified': {total_amount}")
+            else:
+                logger.info(f"Positive 'amount_notified': {total_amount}")
+        else:
+            logger.error("No data returned from contract creation")
+            total_amount = Decimal(0)
+
+        logger.debug(f"Total amount notified: {total_amount}")
+
+        try:
+            self.delete(data)
+            logger.info(f"Contract deleted successfully: {contract}")
+        except Exception as e:
+            logger.error(f"Error during contract deletion: {str(e)}")
+            raise
+
+        logger.info("Contract evaluation completed successfully")
+        return total_amount
+
+    @check_authentication
     def terminate_contract(self):
         try:
             # TODO - add this service to the tasks.py in apscheduler once a day
@@ -626,6 +677,9 @@ class ContractDetails(object):
                                     desired_start_policy_day = last_date_day_to_create_payment + 1
                             
                             desired_month_gap_policy_contract = 4
+                            if ccpd.contribution_plan.benefit_plan.policy_waiting_period:
+                                desired_month_gap_policy_contract = ccpd.contribution_plan.benefit_plan.policy_waiting_period
+
                             # last_date_covered is the policy Start date
                             policy_start_date = contract.date_valid_from.date()
                             policy_start_date = policy_start_date.replace(day=desired_start_policy_day)
@@ -830,6 +884,8 @@ class ContractContributionPlanDetails(object):
                         desired_start_policy_day = last_date_day_to_create_payment + 1
                 # desired_month_gap_policy_contract is a gap of policy from contract
                 desired_month_gap_policy_contract = 2
+                if product.policy_waiting_period:
+                    desired_month_gap_policy_contract = product.policy_waiting_period
 
                 # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -852,6 +908,9 @@ class ContractContributionPlanDetails(object):
                 if ccpd.contract_details.contract.parent:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 1
+                    # if product.policy_waiting_period:
+                    #     desired_month_gap_policy_contract = product.policy_waiting_period
+                    
 
                     # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -863,6 +922,8 @@ class ContractContributionPlanDetails(object):
                 else:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 3
+                    if product.policy_waiting_period:
+                        desired_month_gap_policy_contract = product.policy_waiting_period
 
                     # last_date_covered is the policy Start date 
                     last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -882,6 +943,9 @@ class ContractContributionPlanDetails(object):
                         desired_start_policy_day = last_date_day_to_create_payment + 1
                     
                 desired_month_gap_policy_contract = 4
+                if product.policy_waiting_period:
+                    desired_month_gap_policy_contract = product.policy_waiting_period
+                    
                 print("desired_start_policy_day : ", desired_start_policy_day)
                 # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -1121,6 +1185,11 @@ class PaymentService(object):
                         create_paymentcode_openkmfolder(payment_code, p)
                     except Exception as e:
                         pass
+                    try:
+                        create_camu_notification(PAYMENT_CREATION_NT, p)
+                        logger.info("Sent Notification.")
+                    except Exception as e:
+                        logger.error(f"Failed to call send notification: {e}")
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
