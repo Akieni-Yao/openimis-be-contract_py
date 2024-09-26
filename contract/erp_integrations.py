@@ -21,8 +21,8 @@ headers = {
     'Tmr-Api-Key': 'test'
 }
 headers1 = {
-  'Payment-Type': 'send',
-  'Tmr-Api-Key': 'test'
+    'Payment-Type': 'send',
+    'Tmr-Api-Key': 'test',
 }
 
 
@@ -237,6 +237,6 @@ def erp_payment_method_line(request, journal_id):
         response = requests.get(url, headers=headers1, verify=False)
 
         if response.status_code == 200:
-            return response.json()
+            return JsonResponse(response.json(), safe=False)
 
     return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
