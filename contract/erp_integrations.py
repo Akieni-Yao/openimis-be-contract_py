@@ -185,7 +185,7 @@ def erp_payment_contract(data, user):
     payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
     journal_id = payment_details.received_amount_transaction[0].get("journauxId", {})
-    payment_method_lines_id = payment_details.received_amount_transaction.get("paymentMethodId", {})
+    payment_method_lines_id = payment_details.received_amount_transaction[0].get("paymentMethodId", {})
 
     if not journal_id or not payment_method_lines_id:
         logger.error("Journal ID or Payment Method Lines ID not found.")
