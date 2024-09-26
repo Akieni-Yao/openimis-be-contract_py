@@ -14,7 +14,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
-erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-15480786.dev.odoo.com")
 
 headers = {
     'Content-Type': 'application/json',
@@ -184,39 +184,8 @@ def erp_payment_contract(data, user):
 
     payment_data = {'expected_amount': float(payment_details.expected_amount)}
 
-    # Fetching journal details
-    url = f'{erp_url}/get/journals'
-    logger.debug(f"====== get_journal : url : {url} ======")
-    response = requests.get(url, headers=headers1, verify=False)
-
-    if response.status_code != 200:
-        logger.error(f"Failed to fetch journals: {response.status_code} - {response.text}")
-        return False
-
-    journal_data = response.json()
-    journal_id = None
-    payment_method_lines_id = None
-
-    for details in journal_data.get('journals', []):
-        if details['id'] == 33:
-            journal_id = details['id']
-            url = f'{erp_url}/get/payment-method/{journal_id}'
-            logger.debug(f"====== get_payment_method : url : {url} ======")
-            response = requests.get(url, headers=headers1, verify=False)
-
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch payment method: {response.status_code} - {response.text}")
-                return False
-
-            payment_method = response.json()
-            payment_method_lines = payment_method.get('payment_method_lines', [])
-
-            if not payment_method_lines:
-                logger.error("No payment method lines found.")
-                return False
-
-            payment_method_lines_id = payment_method_lines[0].get('id')
-            break
+    journal_id = payment_details.received_amount_transaction.get("journauxId", {})
+    payment_method_lines_id = payment_details.received_amount_transaction.get("paymentMethodId", {})
 
     if not journal_id or not payment_method_lines_id:
         logger.error("Journal ID or Payment Method Lines ID not found.")
@@ -259,15 +228,3 @@ def erp_payment_contract(data, user):
     logger.debug(f"Register payment response: {response_json}")
     logger.debug("====== erp_create_update_contract - end =======")
     return True
-
-
-def erp_payment_method_line(request, journal_id):
-    if journal_id:
-        url = f'{erp_url}/get/payment-method/{journal_id}'
-        logger.debug(f"====== get_payment_method : url : {url} ======")
-        response = requests.get(url, headers=headers1, verify=False)
-
-        if response.status_code == 200:
-            return JsonResponse(response.json())
-
-    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
