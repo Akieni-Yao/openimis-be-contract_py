@@ -20,11 +20,14 @@ headers = {
     'Content-Type': 'application/json',
     'Tmr-Api-Key': 'test'
 }
+# headers1 = {
+#     'Payment-Type': 'send',
+#     'Tmr-Api-Key': 'test',
+# }
 headers1 = {
-    'Payment-Type': 'send',
+    'Payment-Type': 'receive',
     'Tmr-Api-Key': 'test',
 }
-
 
 def erp_submit_contract_mapping_data(customer_id, declaration_date, invoice):
     mapping_dict = {
