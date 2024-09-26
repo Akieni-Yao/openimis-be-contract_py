@@ -228,3 +228,15 @@ def erp_payment_contract(data, user):
     logger.debug(f"Register payment response: {response_json}")
     logger.debug("====== erp_create_update_contract - end =======")
     return True
+
+
+def erp_payment_method_line(request, journal_id):
+    if journal_id:
+        url = f'{erp_url}/get/payment-method/{journal_id}'
+        logger.debug(f"====== get_payment_method : url : {url} ======")
+        response = requests.get(url, headers=headers1, verify=False)
+
+        if response.status_code == 200:
+            return response.json()
+
+    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
