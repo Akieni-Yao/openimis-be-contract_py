@@ -30,7 +30,7 @@ from contract.apps import ContractConfig
 from contract.utils import filter_amount_contract
 
 logger = logging.getLogger(__name__)
-erp_url = os.environ.get('ERP_HOST', "https://camu-staging-13483170.dev.odoo.com")
+erp_url = os.environ.get('ERP_HOST', "https://camu-staging-15480786.dev.odoo.com")
 
 
 class Query(graphene.ObjectType):
