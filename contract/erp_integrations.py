@@ -71,7 +71,7 @@ def erp_submit_contract(id, user):
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
         amount = contract.amount_notified
 
-        erp_operation_contract = ErpOperations.objects.filter(code='CONTRACT').first()
+        erp_operation_contract = ErpOperations.objects.filter(name__iexact='CONTRACT').first()
 
         invoice = [{
             "product_id": erp_operation_contract.erp_id,
