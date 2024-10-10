@@ -64,6 +64,10 @@ def erp_submit_contract(id, user):
         logger.error("No contribution details found for the contract.")
         return False
 
+    if not contribution.contribution_plan_bundle.erp_id:
+        logger.error(f"The erp_id must be set to the contribution plan bundle '{contribution.contribution_plan_bundle.name}' to sync with ERP.")
+        return False
+
     try:
         customer_id = contract.policy_holder.erp_partner_id
         # account_receivable_id = int(contribution.contribution_plan_bundle.account_receivable_id)
@@ -71,10 +75,10 @@ def erp_submit_contract(id, user):
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
         amount = contract.amount_notified
 
-        erp_operation_contract = ErpOperations.objects.filter(code='CONTRACT').first()
+        erp_operation_contract = ErpOperations.objects.filter(name__iexact='CONTRACT').first()
 
         invoice = [{
-            "product_id": erp_operation_contract.erp_id,
+            "product_id": contribution.contribution_plan_bundle.erp_id,
             "label": product_level,
             "account_id": erp_operation_contract.accounting_id,
             "quantity": 1,
