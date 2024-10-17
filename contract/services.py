@@ -929,7 +929,7 @@ class ContractContributionPlanDetails(object):
                     last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
 
                     # expiry_date is the policy End date 
-                    expiry_date = last_date_covered + relativedelta(months=product.insurance_period-1)
+                    expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
                     expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
             
             if product.insurance_period == 12:
