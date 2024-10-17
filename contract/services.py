@@ -1,45 +1,42 @@
 import json
-
+import logging
 from copy import copy
-
+from datetime import datetime
 from decimal import Decimal
-from django.db import connection
 
+from calculation.services import run_calculation_rules
+from contract.apps import ContractConfig
+from contract.models import Contract as ContractModel
+from contract.models import (
+    ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
+)
+from contract.models import ContractDetails as ContractDetailsModel
+from contract.signals import signal_contract, signal_contract_approve
+from contribution.models import Premium
+from contribution_plan.models import ContributionPlan, ContributionPlanBundleDetails
 from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
 from core.notification_service import create_camu_notification
-from payment.payment_utils import payment_code_generation, create_paymentcode_openkmfolder
-from .config import get_message_counter_contract
-
-from django.db.models.query import Q
+from core.signals import *
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.core.mail import BadHeaderError, send_mail
 from django.core.serializers.json import DjangoJSONEncoder
-from django.core.mail import send_mail, BadHeaderError
+from django.db import connection
+from django.db.models.query import Q
 from django.forms.models import model_to_dict
-
-from contract.apps import ContractConfig
-from contract.signals import signal_contract, signal_contract_approve
-from contract.models import Contract as ContractModel, \
-    ContractDetails as ContractDetailsModel, \
-    ContractContributionPlanDetails as ContractContributionPlanDetailsModel
-from calculation.services import run_calculation_rules
-
-from policyholder.models import PolicyHolderInsuree, PolicyHolder
-from contribution.models import Premium
-from contribution_plan.models import ContributionPlanBundleDetails, ContributionPlan
-
-from policy.models import Policy
-from payment.models import Payment, PaymentDetail, PaymentPenaltyAndSanction
-from payment.services import update_or_create_payment
-from insuree.models import Insuree, InsureePolicy
-from datetime import datetime
 from django.utils import timezone
+from insuree.models import Insuree, InsureePolicy
+from payment.models import Payment, PaymentDetail, PaymentPenaltyAndSanction
+from payment.payment_utils import (
+    create_paymentcode_openkmfolder,
+    payment_code_generation,
+)
+from payment.services import update_or_create_payment
+from policy.models import Policy
+from policyholder.models import PolicyHolder, PolicyHolderInsuree
 
-from dateutil.relativedelta import relativedelta
-
-from core.signals import *
-
-import logging
+from .config import get_message_counter_contract
 
 logger = logging.getLogger("openimis." + __file__)
 
@@ -868,7 +865,7 @@ class ContractContributionPlanDetails(object):
         print("product.insurance_period : ", product.insurance_period)
         print("contract.parent : ", ccpd.contract_details.contract.parent)
         print("BU : last_date_covered : ", last_date_covered)
-
+        
         while last_date_covered < date_valid_to:
             expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
             product_config = product.config_data
@@ -882,10 +879,12 @@ class ContractContributionPlanDetails(object):
                         last_date_to_create_payment = datetime.strptime(last_date_to_create_payment, "%Y-%m-%d").date()
                         last_date_day_to_create_payment = last_date_to_create_payment.day
                         desired_start_policy_day = last_date_day_to_create_payment + 1
+
                 # desired_month_gap_policy_contract is a gap of policy from contract
-                desired_month_gap_policy_contract = 2
-                if product.policy_waiting_period:
-                    desired_month_gap_policy_contract = product.policy_waiting_period
+                # desired_month_gap_policy_contract = 2
+                desired_month_gap_policy_contract = 1
+                # if product.policy_waiting_period:
+                #     desired_month_gap_policy_contract = product.policy_waiting_period
 
                 # last_date_covered is the policy Start date 
                 last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
@@ -893,7 +892,7 @@ class ContractContributionPlanDetails(object):
 
                 # expiry_date is the policy End date 
                 expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
-                expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+                expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
 
             # Changing start date and end date of policy with insurance period 3 as per CAMU Requirement
             if product.insurance_period == 3:
@@ -980,6 +979,7 @@ class ContractContributionPlanDetails(object):
             )
             last_date_covered = expiry_date
             policy_output.append(cur_policy)
+           
         logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
 
@@ -1077,6 +1077,7 @@ class ContractContributionPlanDetails(object):
         """
         logger.info("__append_contract_cpd_to_list : --------- Start ---------")
         from core import datetime, datetimedelta
+
         # TODO - catch grace period from calculation rule if is defined
         #  grace_period = cp.calculation_rule etc
         #  length = cp.get_contribution_length(grace_period)
