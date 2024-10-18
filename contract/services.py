@@ -858,6 +858,11 @@ class ContractContributionPlanDetails(object):
         logger.info("create_contract_details_policies : --------- Start ---------")
         policy_output = []
 
+        #Get the contract
+        policy_holder = ccpd.contract_details.contract.policy_holder
+        has_other_contracts =  policy_holder.contract_set.exclude(
+            id=ccpd.contract_details.contract.id).exists()
+
         logger.info(f"create_contract_details_policies : product.insurance_period : {product.insurance_period}")
         logger.info(f"create_contract_details_policies : contract.parent : {ccpd.contract_details.contract.parent}")
         logger.info(f"create_contract_details_policies : BU : last_date_covered : {last_date_covered}")
@@ -946,13 +951,43 @@ class ContractContributionPlanDetails(object):
                     desired_month_gap_policy_contract = product.policy_waiting_period
                     
                 print("desired_start_policy_day : ", desired_start_policy_day)
-                # last_date_covered is the policy Start date 
-                last_date_covered = last_date_covered.replace(day=desired_start_policy_day)
-                last_date_covered = last_date_covered + relativedelta(months=desired_month_gap_policy_contract)
+                # last_date_covered is the policy Start date
+
+                # last_date_covered = last_date_covered.replace(
+                # day=desired_start_policy_day)
+                # last_date_covered = last_date_covered + relativedelta(
+                # months=desired_month_gap_policy_contract)
+
+
+                # last_date_covered = last_date_covered.replace(
+                # day=desired_start_policy_day)
+                last_date_covered = last_date_covered + relativedelta(
+                    months=desired_month_gap_policy_contract)
+
+                if has_other_contracts:
+                    months_to_substract = desired_month_gap_policy_contract - 6
+                    last_date_covered = last_date_covered + relativedelta(
+                        months=months_to_substract)
+                    
+                last_date_covered = last_date_covered\
+                    .replace(day=desired_start_policy_day)
                 print("last_date_covered : ", last_date_covered)
                 # expiry_date is the policy End date 
-                expiry_date = last_date_covered + relativedelta(months=product.insurance_period)
-                expiry_date = expiry_date.replace(day=desired_start_policy_day-1)
+
+                expiry_date = last_date_covered + relativedelta(
+                    months=product.insurance_period)
+
+                # if the contract is the 1st one it should take 12 months - 3
+                # if the contract has parent then it should take 12 months \
+                # to substract
+                # if has_other_contracts:
+                #     # months_to_substract = product.insurance_period - 3
+                #     expiry_date = last_date_covered + relativedelta(
+                # months=months_to_substract)
+                
+                expiry_date = expiry_date\
+                    .replace(day=desired_start_policy_day - 1)
+
                 print("expiry_date : ", expiry_date)
                         
 
