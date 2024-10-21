@@ -1,13 +1,20 @@
 import graphene
-
-from contribution_plan.models import ContributionPlanBundleDetails
-from core import prefix_filterset, ExtendedConnection
-from graphene_django import DjangoObjectType
-from contract.models import Contract, ContractDetails, ContractContributionPlanDetails, \
-    ContractMutation, ContractDetailsMutation
-from insuree.schema import InsureeGQLType
-from contribution_plan.gql.gql_types import ContributionPlanGQLType, ContributionPlanBundleGQLType
+from contract.models import (
+    Contract,
+    ContractContributionPlanDetails,
+    ContractDetails,
+    ContractDetailsMutation,
+    ContractMutation,
+)
 from contribution.gql_queries import PremiumGQLType
+from contribution_plan.gql.gql_types import (
+    ContributionPlanBundleGQLType,
+    ContributionPlanGQLType,
+)
+from contribution_plan.models import ContributionPlanBundleDetails
+from core import ExtendedConnection, prefix_filterset
+from graphene_django import DjangoObjectType
+from insuree.schema import InsureeGQLType
 from policyholder.gql.gql_types import PolicyHolderGQLType
 from policyholder.models import PolicyHolderInsuree
 
@@ -81,8 +88,10 @@ class ContractDetailsGQLType(DjangoObjectType):
                 json_data = conti_plan.json_ext
                 calculation_rule = json_data.get('calculation_rule')
                 if calculation_rule:
-                    ercp = int(float(calculation_rule.get('employerContribution', 0)))
-                    eecp = int(float(calculation_rule.get('employeeContribution', 0)))
+                    ercp = float(calculation_rule.get(
+                        'employerContribution', 0.0))
+                    eecp = float(calculation_rule.get(
+                        'employeeContribution', 0.0))
 
             # Uncommented lines can be used if needed for future logic
             # insuree = self.insuree
@@ -99,13 +108,14 @@ class ContractDetailsGQLType(DjangoObjectType):
             #     json_data = phn_json.json_ext
             #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
             self_json = self.json_ext if self.json_ext else None
-            ei = 0
+            ei = 0.0
             if self_json:
-                ei = int(float(self_json.get('calculation_rule', {}).get('income', 0)))
+                ei = float(
+                    self_json.get('calculation_rule', {}).get('income', 0.0))
 
             # Use integer arithmetic to avoid floating-point issues
-            employer_contribution = (ei * ercp // 100) if ercp and ei is not None else 0
-            salary_share = (ei * eecp // 100) if eecp and ei is not None else 0
+            employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+            salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
             total = salary_share + employer_contribution
 
             response = {
