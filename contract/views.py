@@ -3,14 +3,13 @@ import json
 import logging
 
 import pandas as pd
-from django.db import transaction
-from django.http import HttpResponse, JsonResponse
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
 from contract.models import ContractDetails
 from contribution_plan.models import ContributionPlanBundleDetails
+from django.db import transaction
+from django.http import HttpResponse, JsonResponse
 from policyholder.models import PolicyHolderInsuree
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +89,15 @@ def get_contract_custom_field_data(detail):
     cpb = detail.contribution_plan_bundle
     cpbd = ContributionPlanBundleDetails.objects.filter(contribution_plan_bundle=cpb, is_deleted=False).first()
     conti_plan = cpbd.contribution_plan if cpbd else None
-    ercp = 0
-    eecp = 0
+    ercp = 0.0
+    eecp = 0.0
 
     if conti_plan and conti_plan.json_ext:
         json_data = conti_plan.json_ext
         calculation_rule = json_data.get('calculation_rule')
         if calculation_rule:
-            ercp = int(float(calculation_rule.get('employerContribution', 0)))
-            eecp = int(float(calculation_rule.get('employeeContribution', 0)))
+            ercp = float(calculation_rule.get('employerContribution', 0.0))
+            eecp = float(calculation_rule.get('employeeContribution', 0.0))
 
     insuree = detail.insuree
     policy_holder = detail.contract.policy_holder
@@ -110,16 +109,16 @@ def get_contract_custom_field_data(detail):
 
     if phn_json and phn_json.json_ext:
         json_data = phn_json.json_ext
-        ei = int(float(json_data.get('calculation_rule', {}).get('income', 0)))
+        ei = float(json_data.get('calculation_rule', {}).get('income', 0.0))
 
-    employer_contribution = (ei * ercp // 100) if ercp and ei is not None else 0
-    salary_share = (ei * eecp // 100) if eecp and ei is not None else 0
+    employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+    salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
     total = salary_share + employer_contribution
 
     custom_field_data = {
-        'total': total if total is not None else 0,
-        'employerContribution': employer_contribution if employer_contribution is not None else 0,
-        'salaryShare': salary_share if salary_share is not None else 0,
+        'total': total if total is not None else 0.0,
+        'employerContribution': employer_contribution if employer_contribution is not None else 0.0,
+        'salaryShare': salary_share if salary_share is not None else 0.0,
     }
 
     contract_data = {
@@ -147,7 +146,6 @@ def get_contract_custom_field_data(detail):
         },
         'customField': custom_field_data,
     }
-
     return contract_data
 
 
