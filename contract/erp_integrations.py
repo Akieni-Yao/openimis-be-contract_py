@@ -10,6 +10,7 @@ from payment.models import Payment
 from contract.apps import MODULE_NAME
 from core.models import ErpApiFailedLogs, ErpOperations
 from datetime import datetime
+import locale
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,11 @@ def erp_submit_contract(id, user):
         customer_id = contract.policy_holder.erp_partner_id
         # account_receivable_id = int(contribution.contribution_plan_bundle.account_receivable_id)
         declaration_date = contract.date_valid_from.strftime("%d/%m/%Y")
+        
+        locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
         product_level = contract.date_valid_from.strftime("%b %Y").upper()
+        locale.setlocale(locale.LC_TIME, '')
+        
         amount = contract.amount_notified
 
         erp_operation_contract = ErpOperations.objects.filter(name__iexact='CONTRACT').first()
