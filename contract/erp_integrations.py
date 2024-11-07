@@ -51,6 +51,31 @@ def erp_contract_payment_mapping_data(journel_id, payment_method_lines_id, expec
 def filter_null_values(data):
     return {k: v for k, v in data.items() if v is not None}
 
+french_months = {
+    "Jan": "Janv.",
+    "Feb": "Févr.",
+    "Mar": "Mars",
+    "Apr": "Avr.",
+    "May": "Mai",
+    "Jun": "Juin",
+    "Jul": "Juil.",
+    "Aug": "Août",
+    "Sep": "Sept.",
+    "Oct": "Oct.",
+    "Nov": "Nov.",
+    "Dec": "Déc."
+}
+
+def get_french_date(date_string):
+    parts = date_string.split()
+    french_parts = []
+    for part in parts:
+        if part in french_months:
+            french_parts.append(french_months[part].upper())
+        else:
+            french_parts.append(part)
+    return " ".join(french_parts)
+
 def erp_submit_contract(id, user):
     logger.debug("====== erp_create_update_contract - start =======")
 
@@ -78,9 +103,7 @@ def erp_submit_contract(id, user):
         # account_receivable_id = int(contribution.contribution_plan_bundle.account_receivable_id)
         declaration_date = contract.date_valid_from.strftime("%d/%m/%Y")
         
-        locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
-        product_level = contract.date_valid_from.strftime("%b %Y").upper()
-        locale.setlocale(locale.LC_TIME, '')
+        product_level = get_french_date(contract.date_valid_from.strftime("%b %Y"))
         
         amount = contract.amount_notified
 
