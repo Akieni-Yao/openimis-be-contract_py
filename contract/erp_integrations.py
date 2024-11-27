@@ -1,16 +1,16 @@
 import json
-import os
-import requests
-import logging
-
-from django.http import JsonResponse
-
-from contract.models import Contract, ContractDetails
-from payment.models import Payment
-from contract.apps import MODULE_NAME
-from core.models import ErpApiFailedLogs, ErpOperations
-from datetime import datetime
 import locale
+import logging
+import os
+from datetime import datetime
+
+import requests
+from core.models import ErpApiFailedLogs, ErpOperations
+from django.http import JsonResponse
+from payment.models import Payment
+
+from contract.apps import MODULE_NAME
+from contract.models import Contract, ContractDetails
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +279,8 @@ def erp_payment_method_line(request, journal_id):
             return JsonResponse(response.json(), safe=False)
 
     return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
+
+
+def post_bill_invoice(invoice_id: str):
+    url = f"{erp_url}/post/invoice/{invoice_id}"
+    return requests.post(url, headers=headers, timeout=60)
