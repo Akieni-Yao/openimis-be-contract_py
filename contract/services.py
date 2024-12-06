@@ -113,8 +113,7 @@ class Contract(object):
             contract['code'] = incoming_code  # Set the generated code into the contract
             # if check_unique_code(incoming_code):
             #     raise ValidationError(("Contract code %s already exists" % incoming_code))
-            if not self.user.has_perms(ContractConfig.gql_mutation_create_contract_perms):
-                raise PermissionError("Unauthorized")
+
             c = ContractModel(**contract)
             c.state = ContractModel.STATE_DRAFT
             c.save(username=self.user.username)
