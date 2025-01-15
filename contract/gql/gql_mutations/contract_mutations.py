@@ -22,8 +22,7 @@ class CreateContractMutation(ContractCreateMutationMixin, BaseMutation):
 
     class Input(ContractCreateInputType):
         pass
-
-
+    
 class UpdateContractMutation(ContractUpdateMutationMixin, BaseMutation):
     _mutation_class = "UpdateContractMutation"
     _mutation_module = "contract"
