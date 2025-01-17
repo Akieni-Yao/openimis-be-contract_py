@@ -16,10 +16,11 @@ logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
 erp_url = os.environ.get('ERP_HOST', "https://camu-staging-15480786.dev.odoo.com")
+tmr_api_key = os.environ.get("TMR_API_KEY", "test")
 
 headers = {
     'Content-Type': 'application/json',
-    'Tmr-Api-Key': 'test'
+    'Tmr-Api-Key': tmr_api_key
 }
 # headers1 = {
 #     'Payment-Type': 'send',
@@ -27,7 +28,7 @@ headers = {
 # }
 headers1 = {
     'Payment-Type': 'receive',
-    'Tmr-Api-Key': 'test',
+    'Tmr-Api-Key': tmr_api_key,
 }
 
 def erp_submit_contract_mapping_data(customer_id, declaration_date, invoice):
