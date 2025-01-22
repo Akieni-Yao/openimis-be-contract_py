@@ -106,7 +106,7 @@ def erp_submit_contract(id, user):
         
         product_level = get_french_date(contract.date_valid_from.strftime("%b %Y"))
         
-        amount = contract.amount_notified
+        amount = contract.amount_due
 
         erp_operation_contract = ErpOperations.objects.filter(name__iexact='CONTRACT').first()
 
