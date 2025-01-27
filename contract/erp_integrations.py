@@ -15,8 +15,8 @@ from contract.models import Contract, ContractDetails
 logger = logging.getLogger(__name__)
 
 # erp_url = os.environ.get('ERP_HOST')
-erp_url = os.environ.get('ERP_HOST', "https://camu-staging-15480786.dev.odoo.com")
-tmr_api_key = os.environ.get("TMR_API_KEY", "1234")
+erp_url = os.environ.get('ERP_HOST')
+tmr_api_key = os.environ.get("TMR_API_KEY")
 
 headers = {
     'Content-Type': 'application/json',
