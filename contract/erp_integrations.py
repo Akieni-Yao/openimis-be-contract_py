@@ -271,15 +271,19 @@ def erp_payment_contract(data, user):
 
 
 def erp_payment_method_line(request, journal_id):
-    if journal_id:
-        url = f'{erp_url}/get/payment-method/{journal_id}'
-        logger.debug(f"====== get_payment_method : url : {url} ======")
-        response = requests.get(url, headers=headers1, verify=False)
+    try:
+        if journal_id:
+            url = f'{erp_url}/get/payment-method/{journal_id}'
+            logger.debug(f"====== get_payment_method : url : {url} ======")
+            response = requests.get(url, headers=headers1, verify=False)
 
-        if response.status_code == 200:
-            return JsonResponse(response.json(), safe=False)
+            if response.status_code == 200:
+                return JsonResponse(response.json(), safe=False)
 
-    return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
+            return JsonResponse({"error": f"Failed to fetch payment method: {response.status_code}", "details": response.text})
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return JsonResponse({"error": f"An error occurred: {e}"}, status=500)
 
 
 def post_bill_invoice(invoice_id: str):
