@@ -1,7 +1,10 @@
 import json
 from django.db.models import Q
 
+from django.http import Http404, JsonResponse
 from contract.models import Contract, ContractDetails
+from report.apps import ReportConfig
+from report.services import get_report_definition, generate_report
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
@@ -74,9 +77,9 @@ def generate_report_for_contract_receipt(contract_id):
                 for detail in contract_details:
                     jsonExt = detail.json_ext
                     customField = json.loads(detail.customField)
-                    total_salary_brut += jsonExt['calculation_rule']['income']
-                    part_salariale += customField['salaryShare']
-                    part_patronale += customField['employerContribution']
+                    total_salary_brut += jsonExt["calculation_rule"]["income"]
+                    part_salariale += customField["salaryShare"]
+                    part_patronale += customField["employerContribution"]
 
                 data = {
                     "data": {
@@ -96,6 +99,7 @@ def generate_report_for_contract_receipt(contract_id):
                         "user_name": user_name,
                     }
                 }
+                report_name = "contract_referrals"
                 report_config = ReportConfig.get_report(report_name)
                 if not report_config:
                     raise Http404("Report configuration does not exist")
