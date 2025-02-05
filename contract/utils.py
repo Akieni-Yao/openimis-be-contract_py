@@ -118,11 +118,15 @@ def generate_report_for_contract_receipt(contract_id):
                 print(f"=========================================== data {data}")
                 report_name = "contract_referrals"
                 report_config = ReportConfig.get_report(report_name)
+                print("=========================================== report_config ")
                 if not report_config:
                     raise Http404("Report configuration does not exist")
                 report_definition = (report_name, report_config["default_report"])
+                print("=========================================== report_definition")
                 template_dict = json.loads(report_definition)
+                print("=========================================== template_dict")
                 pdf = generate_report(report_name, template_dict, data)
+                print(f"=========================================== pdf {pdf}")
                 print("Report generated successfully.")
                 return pdf
     except Exception as e:
