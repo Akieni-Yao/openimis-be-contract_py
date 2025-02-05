@@ -3,6 +3,7 @@ from django.db.models import Q
 
 from django.http import Http404, JsonResponse
 from contract.models import Contract, ContractDetails
+from contract.views import get_contract_custom_field_data
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 
@@ -61,7 +62,7 @@ def generate_report_for_contract_receipt(contract_id):
         if contract:
             contract_details = ContractDetails.objects.filter(
                 contract_id=contract_id, is_deleted=False
-            ).first()
+            )
             if contract_details:
                 policy_holder = contract.policy_holder
                 current_date = str(now.strftime("%d-%m-%Y"))
@@ -70,25 +71,40 @@ def generate_report_for_contract_receipt(contract_id):
                 total_salary_brut = 0
                 part_salariale = 0
                 part_patronale = 0
-                total_due_pay = contract.get("amountDue", 0)
+                total_due_pay = (
+                    contract.amount_due if contract.amount_due is not None else 0
+                )
                 user_location = ""
                 user_name = ""
 
                 for detail in contract_details:
                     jsonExt = detail.json_ext
-                    customField = json.loads(detail.customField)
+                    customField = get_contract_custom_field_data(detail)
+                    print(
+                        f"=========================================== customField {customField['customField']}"
+                    )
                     total_salary_brut += jsonExt["calculation_rule"]["income"]
-                    part_salariale += customField["salaryShare"]
-                    part_patronale += customField["employerContribution"]
+                    part_salariale += customField['customField']["salaryShare"]
+                    part_patronale += customField['customField']["employerContribution"]
 
                 data = {
                     "data": {
                         "id": contract.code,
                         "period": "",
                         "current_date": current_date,
-                        "subscriber_name": policy_holder.get("trade_name", ""),
-                        "subscriber_camu_number": policy_holder.get("code", ""),
-                        "subscriber_addresse": policy_holder.get("address", ""),
+                        "subscriber_name": (
+                            policy_holder.trade_name
+                            if policy_holder.trade_name is not None
+                            else ""
+                        ),
+                        "subscriber_camu_number": (
+                            policy_holder.code if policy_holder.code is not None else ""
+                        ),
+                        "subscriber_addresse": (
+                            policy_holder.address
+                            if policy_holder.address is not None
+                            else ""
+                        ),
                         "date_valid_to": date_valid_to,
                         "total_insuree": total_insuree,
                         "total_salary_brut": total_salary_brut,
@@ -99,6 +115,7 @@ def generate_report_for_contract_receipt(contract_id):
                         "user_name": user_name,
                     }
                 }
+                print(f"=========================================== data {data}")
                 report_name = "contract_referrals"
                 report_config = ReportConfig.get_report(report_name)
                 if not report_config:

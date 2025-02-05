@@ -156,7 +156,7 @@ class PrintContractReceiptMutation(Mutation):
     data = graphene.String()
 
     class Arguments:
-        payment_id = String(required=True)
+        contract_id = String(required=True)
 
     def mutate(self, info, contract_id):
         try:
