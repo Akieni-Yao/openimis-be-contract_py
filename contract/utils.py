@@ -121,7 +121,7 @@ def generate_report_for_contract_receipt(contract_id):
                 print("=========================================== report_config ")
                 if not report_config:
                     raise Http404("Report configuration does not exist")
-                report_definition = (report_name, report_config["default_report"])
+                report_definition = get_report_definition(report_name, report_config["default_report"])
                 print("=========================================== report_definition")
                 template_dict = json.loads(report_definition)
                 print("=========================================== template_dict")
