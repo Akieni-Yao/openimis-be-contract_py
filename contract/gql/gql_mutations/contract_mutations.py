@@ -160,7 +160,7 @@ class PrintContractReceiptMutation(Mutation):
 
     def mutate(self, info, contract_id):
         try:
-            pdf = generate_report_for_contract_receipt(contract_id)
+            pdf = generate_report_for_contract_receipt(contract_id, info)
 
             if pdf:
                 pdf_path = os.path.join(settings.BASE_DIR, "payment_receipt.pdf")

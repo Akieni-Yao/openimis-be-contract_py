@@ -6,6 +6,7 @@ from contract.models import Contract, ContractDetails
 from contract.views import get_contract_custom_field_data
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
+from core.models import User
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
@@ -53,7 +54,7 @@ def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
         )
 
 
-def generate_report_for_contract_receipt(contract_id):
+def generate_report_for_contract_receipt(contract_id, info):
     from core import datetime
 
     now = datetime.datetime.now()
@@ -74,8 +75,16 @@ def generate_report_for_contract_receipt(contract_id):
                 total_due_pay = (
                     contract.amount_due if contract.amount_due is not None else 0
                 )
-                user_location = ""
-                user_name = ""
+                print(f'================================= info {info.context.user.id}')
+                user = User.objects.filter(id=info.context.user.id).first()
+                
+                print(f"==================================== user {user}")
+                
+                user_location = "Brazzaville"
+                user_name = f"{user.i_user.last_name} {user.i_user.other_names}"
+                
+                # if user.i_user.districts:
+                #     user_location = user.i_user.districts[0].location.name
 
                 for detail in contract_details:
                     jsonExt = detail.json_ext
@@ -83,14 +92,15 @@ def generate_report_for_contract_receipt(contract_id):
                     print(
                         f"=========================================== customField {customField['customField']}"
                     )
-                    total_salary_brut += jsonExt["calculation_rule"]["income"]
-                    part_salariale += customField['customField']["salaryShare"]
-                    part_patronale += customField['customField']["employerContribution"]
-
+                    total_salary_brut += int(jsonExt["calculation_rule"]["income"]) if jsonExt["calculation_rule"]["income"] else 0
+                    part_salariale += int(customField['customField']["salaryShare"]) if customField['customField']["salaryShare"] else 0
+                    part_patronale += int(customField['customField']["employerContribution"]) if customField['customField']["employerContribution"] else 0
+                    
                 data = {
                     "data": {
                         "id": contract.code,
-                        "period": "",
+                        "period": str(contract.date_created.strftime("%m-%Y")),
+                        "created_at": str(contract.date_created.strftime("%d-%m-%Y")),
                         "current_date": current_date,
                         "subscriber_name": (
                             policy_holder.trade_name
@@ -126,7 +136,6 @@ def generate_report_for_contract_receipt(contract_id):
                 template_dict = json.loads(report_definition)
                 print("=========================================== template_dict")
                 pdf = generate_report(report_name, template_dict, data)
-                print(f"=========================================== pdf {pdf}")
                 print("Report generated successfully.")
                 return pdf
     except Exception as e:
