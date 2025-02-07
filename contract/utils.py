@@ -95,18 +95,34 @@ def generate_report_for_contract_receipt(contract_id, info):
         print(f"==================================== user {user}")
         print(f"==================================== policy_holder {policy_holder}")
 
+        locations = policy_holder.locations
+        location = {
+            "adresse": policy_holder.address["address"],
+            "quartier": locations.name,
+            "arrondissement": locations.parent.name,
+            "ville": locations.parent.parent.name,
+            "department": locations.parent.parent.parent.name,
+        }
+        print(f"==================================== location {location}")
+        # for location in policy_holder.locations:
+        # print(f"==================================== location name {locations.name}")
+        # print(f"==================================== location type {locations.type}")
+        # print(f"==================================== location code {locations.code}")
+        # print(f"==================================== location parent {locations.parent}")
+        # print(f"==================================== location parent {locations.parent.parent}")
+
         if contract:
             contract_details = ContractDetails.objects.filter(
                 contract_id=contract_id, is_deleted=False
             )
             if contract_details:
                 # policy_holder = contract.policy_holder
-                current_date = str(now.strftime("%d-%m-%Y à %H:%M:%S"))
-                date_valid_to = (
-                    str(payment.request_date.strftime("%d-%m-%Y"))
-                    if payment.request_date
-                    else ""
-                )
+                # current_date = str(now.strftime("%d-%m-%Y à %H:%M:%S"))
+                # date_valid_to = (
+                #     str(payment.request_date.strftime("%d-%m-%Y"))
+                #     if payment.request_date
+                #     else ""
+                # )
                 total_insuree = contract_details.count()
                 total_salary_brut = 0
                 part_salariale = 0
@@ -148,11 +164,9 @@ def generate_report_for_contract_receipt(contract_id, info):
 
                 data = {
                     "data": {
-                        "id": contract.code,
                         "payment_id": payment.payment_code,
                         "period": get_period_date(contract.date_valid_from),
-                        "created_at": str(contract.date_approved.strftime("%d-%m-%Y")),
-                        "current_date": current_date,
+                        "current_date": str(now.strftime("%d-%m-%Y à %H:%M:%S")),
                         "subscriber_name": (
                             policy_holder.trade_name
                             if policy_holder.trade_name is not None
@@ -161,12 +175,14 @@ def generate_report_for_contract_receipt(contract_id, info):
                         "subscriber_camu_number": (
                             policy_holder.code if policy_holder.code is not None else ""
                         ),
-                        "subscriber_adresse": (
-                            policy_holder.address['address']
-                            if policy_holder.address is not None
+                        "subscriber_adresse": f"{location['adresse']}, {location['quartier']}, {location['arrondissement']}, {location['ville']}, {location['department']}",
+                        "id": contract.code,
+                        "created_at": str(contract.date_approved.strftime("%d-%m-%Y")),
+                        "date_valid_to": (
+                            str(contract.date_payment_due.strftime("%d-%m-%Y"))
+                            if contract.date_payment_due
                             else ""
                         ),
-                        "date_valid_to": date_valid_to,
                         "total_insuree": total_insuree,
                         "total_salary_brut": total_salary_brut,
                         "part_salariale": part_salariale,
