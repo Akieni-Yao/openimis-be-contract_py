@@ -8,7 +8,7 @@ from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 from core.models import User
 from payment.models import Payment
-from policyHolder.models import PolicyHolder
+from policyholder.models import PolicyHolder
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
@@ -84,16 +84,24 @@ def generate_report_for_contract_receipt(contract_id, info):
     now = datetime.datetime.now()
     try:
         contract = Contract.objects.filter(id=contract_id, is_deleted=False).first()
-        payment = Payment.objects.filter(contract=contract, is_deleted=False).first()
+        payment = Payment.objects.filter(contract=contract).first()
         user = User.objects.filter(id=info.context.user.id).first()
+        policy_holder = PolicyHolder.objects.filter(
+            id=contract.policy_holder_id, is_deleted=False
+        ).first()
+
+        print(f"==================================== contract {contract}")
+        print(f"==================================== payment {payment}")
+        print(f"==================================== user {user}")
+        print(f"==================================== policy_holder {policy_holder}")
+
         if contract:
             contract_details = ContractDetails.objects.filter(
                 contract_id=contract_id, is_deleted=False
             )
             if contract_details:
                 # policy_holder = contract.policy_holder
-                policy_holder = PolicyHolder.objects.filter(id=contract.policy_holder_id, is_deleted=False).first()
-                current_date = str(now.strftime("%d-%m-%YT%H:%M:%S"))
+                current_date = str(now.strftime("%d-%m-%Y à %H:%M:%S"))
                 date_valid_to = (
                     str(payment.request_date.strftime("%d-%m-%Y"))
                     if payment.request_date
@@ -107,7 +115,6 @@ def generate_report_for_contract_receipt(contract_id, info):
                     contract.amount_due if contract.amount_due is not None else 0
                 )
                 print(f"================================= info {info.context.user.id}")
-                
 
                 print(f"==================================== user {user}")
 
@@ -142,7 +149,7 @@ def generate_report_for_contract_receipt(contract_id, info):
                 data = {
                     "data": {
                         "id": contract.code,
-                        "payment_id": payment.payment_code if payment else "",
+                        "payment_id": payment.payment_code,
                         "period": get_period_date(contract.date_valid_from),
                         "created_at": str(contract.date_approved.strftime("%d-%m-%Y")),
                         "current_date": current_date,
@@ -154,8 +161,8 @@ def generate_report_for_contract_receipt(contract_id, info):
                         "subscriber_camu_number": (
                             policy_holder.code if policy_holder.code is not None else ""
                         ),
-                        "subscriber_addresse": (
-                            policy_holder.address
+                        "subscriber_adresse": (
+                            policy_holder.address['address']
                             if policy_holder.address is not None
                             else ""
                         ),
