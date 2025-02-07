@@ -7,6 +7,8 @@ from contract.views import get_contract_custom_field_data
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 from core.models import User
+from payment.models import Payment
+from policyHolder.models import PolicyHolder
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
@@ -54,20 +56,49 @@ def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
         )
 
 
+def get_period_date(contract_date_valid_from):
+    if contract_date_valid_from:
+        year = str(contract_date_valid_from.strftime("%Y"))
+        month = str(contract_date_valid_from.strftime("%m"))
+        months_french = [
+            "Janvier",
+            "Février",
+            "Mars",
+            "Avril",
+            "Mai",
+            "Juin",
+            "Juillet",
+            "Août",
+            "Septembre",
+            "Octobre",
+            "Novembre",
+            "Décembre",
+        ]
+        return f"{months_french[int(month) - 1]} {year}"
+    return ""
+
+
 def generate_report_for_contract_receipt(contract_id, info):
     from core import datetime
 
     now = datetime.datetime.now()
     try:
         contract = Contract.objects.filter(id=contract_id, is_deleted=False).first()
+        payment = Payment.objects.filter(contract=contract, is_deleted=False).first()
+        user = User.objects.filter(id=info.context.user.id).first()
         if contract:
             contract_details = ContractDetails.objects.filter(
                 contract_id=contract_id, is_deleted=False
             )
             if contract_details:
-                policy_holder = contract.policy_holder
-                current_date = str(now.strftime("%d-%m-%Y"))
-                date_valid_to = str(contract.date_valid_to.strftime("%d-%m-%Y"))
+                # policy_holder = contract.policy_holder
+                policy_holder = PolicyHolder.objects.filter(id=contract.policy_holder_id, is_deleted=False).first()
+                current_date = str(now.strftime("%d-%m-%YT%H:%M:%S"))
+                date_valid_to = (
+                    str(payment.request_date.strftime("%d-%m-%Y"))
+                    if payment.request_date
+                    else ""
+                )
                 total_insuree = contract_details.count()
                 total_salary_brut = 0
                 part_salariale = 0
@@ -75,14 +106,14 @@ def generate_report_for_contract_receipt(contract_id, info):
                 total_due_pay = (
                     contract.amount_due if contract.amount_due is not None else 0
                 )
-                print(f'================================= info {info.context.user.id}')
-                user = User.objects.filter(id=info.context.user.id).first()
+                print(f"================================= info {info.context.user.id}")
                 
+
                 print(f"==================================== user {user}")
-                
+
                 user_location = "Brazzaville"
                 user_name = f"{user.i_user.last_name} {user.i_user.other_names}"
-                
+
                 # if user.i_user.districts:
                 #     user_location = user.i_user.districts[0].location.name
 
@@ -92,15 +123,28 @@ def generate_report_for_contract_receipt(contract_id, info):
                     print(
                         f"=========================================== customField {customField['customField']}"
                     )
-                    total_salary_brut += int(jsonExt["calculation_rule"]["income"]) if jsonExt["calculation_rule"]["income"] else 0
-                    part_salariale += int(customField['customField']["salaryShare"]) if customField['customField']["salaryShare"] else 0
-                    part_patronale += int(customField['customField']["employerContribution"]) if customField['customField']["employerContribution"] else 0
-                    
+                    total_salary_brut += (
+                        int(jsonExt["calculation_rule"]["income"])
+                        if jsonExt["calculation_rule"]["income"]
+                        else 0
+                    )
+                    part_salariale += (
+                        int(customField["customField"]["salaryShare"])
+                        if customField["customField"]["salaryShare"]
+                        else 0
+                    )
+                    part_patronale += (
+                        int(customField["customField"]["employerContribution"])
+                        if customField["customField"]["employerContribution"]
+                        else 0
+                    )
+
                 data = {
                     "data": {
                         "id": contract.code,
-                        "period": str(contract.date_created.strftime("%m-%Y")),
-                        "created_at": str(contract.date_created.strftime("%d-%m-%Y")),
+                        "payment_id": payment.payment_code if payment else "",
+                        "period": get_period_date(contract.date_valid_from),
+                        "created_at": str(contract.date_approved.strftime("%d-%m-%Y")),
                         "current_date": current_date,
                         "subscriber_name": (
                             policy_holder.trade_name
@@ -131,7 +175,9 @@ def generate_report_for_contract_receipt(contract_id, info):
                 print("=========================================== report_config ")
                 if not report_config:
                     raise Http404("Report configuration does not exist")
-                report_definition = get_report_definition(report_name, report_config["default_report"])
+                report_definition = get_report_definition(
+                    report_name, report_config["default_report"]
+                )
                 print("=========================================== report_definition")
                 template_dict = json.loads(report_definition)
                 print("=========================================== template_dict")
