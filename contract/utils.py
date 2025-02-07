@@ -3,7 +3,7 @@ from django.db.models import Q
 
 from django.http import Http404, JsonResponse
 from contract.models import Contract, ContractDetails
-from contract.views import get_contract_custom_field_data
+from contract.views import get_contract_custom_field_data, resolve_custom_field
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 from core.models import User
@@ -142,9 +142,9 @@ def generate_report_for_contract_receipt(contract_id, info):
 
                 for detail in contract_details:
                     jsonExt = detail.json_ext
-                    customField = get_contract_custom_field_data(detail)
+                    customField = resolve_custom_field(detail)
                     print(
-                        f"=========================================== customField {customField['customField']}"
+                        f"=========================================== customField {customField}"
                     )
                     total_salary_brut += (
                         int(jsonExt["calculation_rule"]["income"])
@@ -152,13 +152,13 @@ def generate_report_for_contract_receipt(contract_id, info):
                         else 0
                     )
                     part_salariale += (
-                        int(customField["customField"]["salaryShare"])
-                        if customField["customField"]["salaryShare"]
+                        int(customField["salaryShare"])
+                        if customField["salaryShare"]
                         else 0
                     )
                     part_patronale += (
-                        int(customField["customField"]["employerContribution"])
-                        if customField["customField"]["employerContribution"]
+                        int(customField["employerContribution"])
+                        if customField["employerContribution"]
                         else 0
                     )
 

@@ -21,36 +21,65 @@ class ContractManager(models.Manager):
 
 
 class Contract(core_models.HistoryBusinessModel):
-    code = models.CharField(db_column='Code', max_length=64, null=False)
-    policy_holder = models.ForeignKey(PolicyHolder, db_column="PolicyHolderUUID",
-                                      on_delete=models.deletion.DO_NOTHING, blank=True, null=True)
-    amount_notified = models.FloatField(db_column='AmountNotified', blank=True, null=True)
-    amount_rectified = models.FloatField(db_column='AmountRectified', blank=True, null=True)
-    amount_due = models.FloatField(db_column='AmountDue', blank=True, null=True)
-    date_approved = fields.DateTimeField(db_column='DateApproved', blank=True, null=True)
-    date_payment_due = fields.DateField(db_column='DatePaymentDue', blank=True, null=True)
-    state = models.SmallIntegerField(db_column='State', blank=True, null=True)
-    payment_reference = models.CharField(db_column='PaymentReference', max_length=255, blank=True, null=True)
-    amendment = models.IntegerField(db_column='Amendment', blank=False, null=False, default=0)
-    
-    penalty_raised = models.BooleanField(db_column='PenaltyRaised', default=False)
-    penalty_raised_date = fields.DateField(db_column='PenaltyRaisedDate', null=True)
+    code = models.CharField(db_column="Code", max_length=64, null=False)
+    policy_holder = models.ForeignKey(
+        PolicyHolder,
+        db_column="PolicyHolderUUID",
+        on_delete=models.deletion.DO_NOTHING,
+        blank=True,
+        null=True,
+    )
+    amount_notified = models.FloatField(
+        db_column="AmountNotified", blank=True, null=True
+    )
+    amount_rectified = models.FloatField(
+        db_column="AmountRectified", blank=True, null=True
+    )
+    amount_due = models.FloatField(db_column="AmountDue", blank=True, null=True)
+    date_approved = fields.DateTimeField(
+        db_column="DateApproved", blank=True, null=True
+    )
+    date_payment_due = fields.DateField(
+        db_column="DatePaymentDue", blank=True, null=True
+    )
+    state = models.SmallIntegerField(db_column="State", blank=True, null=True)
+    payment_reference = models.CharField(
+        db_column="PaymentReference", max_length=255, blank=True, null=True
+    )
+    amendment = models.IntegerField(
+        db_column="Amendment", blank=False, null=False, default=0
+    )
+
+    penalty_raised = models.BooleanField(db_column="PenaltyRaised", default=False)
+    penalty_raised_date = fields.DateField(db_column="PenaltyRaisedDate", null=True)
     # penalty_amount = models.FloatField(db_column='PenaltyAmount', null=True)
     # penalty_paid = models.BooleanField(db_column='PenaltyPaid', null=True)
     # penalty_paid_date = fields.DateField(db_column='PenaltyPaidDate', null=True)
-    penalty_waive_off_contract = models.BooleanField(db_column='PenaltyWaiveOffContract', default=False)
-    penalty_waive_off_payment = models.BooleanField(db_column='PenaltyWaiveOffPayment', default=False)
-    penalty_waive_off_contract_reason = models.CharField(db_column='PenaltyWaiveOffContractReason', max_length=255, null=True)
-    penalty_waive_off_payment_reason = models.CharField(db_column='PenaltyWaiveOffPaymentReason', max_length=255, null=True)
-    parent = models.ForeignKey('self', on_delete=models.deletion.DO_NOTHING, db_column="Parent", null=True)
+    penalty_waive_off_contract = models.BooleanField(
+        db_column="PenaltyWaiveOffContract", default=False
+    )
+    penalty_waive_off_payment = models.BooleanField(
+        db_column="PenaltyWaiveOffPayment", default=False
+    )
+    penalty_waive_off_contract_reason = models.CharField(
+        db_column="PenaltyWaiveOffContractReason", max_length=255, null=True
+    )
+    penalty_waive_off_payment_reason = models.CharField(
+        db_column="PenaltyWaiveOffPaymentReason", max_length=255, null=True
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.deletion.DO_NOTHING, db_column="Parent", null=True
+    )
     # parent_contract_pending = models.BooleanField(db_column='ParentPaymentPending', default=False)
     # parent_penalty_paid = models.BooleanField(db_column='ParentPaymentPaid', null=True)
-    gap_from_parent = models.IntegerField(db_column='GapFromParent', null=True)
-    erp_contract_id = models.IntegerField(db_column='ErpContractID', null=True)
-    erp_invoice_access_id = models.CharField(db_column='ErpInvoiceAccessID', max_length=255, null=True)
+    gap_from_parent = models.IntegerField(db_column="GapFromParent", null=True)
+    erp_contract_id = models.IntegerField(db_column="ErpContractID", null=True)
+    erp_invoice_access_id = models.CharField(
+        db_column="ErpInvoiceAccessID", max_length=255, null=True
+    )
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
-    
+
     objects = ContractManager()
 
     @property
@@ -78,7 +107,7 @@ class Contract(core_models.HistoryBusinessModel):
         return queryset
 
     class Meta:
-        db_table = 'tblContract'
+        db_table = "tblContract"
 
     STATE_REQUEST_FOR_INFORMATION = 1
     STATE_DRAFT = 2
@@ -103,15 +132,19 @@ class ContractDetailsManager(models.Manager):
 
 
 class ContractDetails(core_models.HistoryModel):
-    contract = models.ForeignKey(Contract, db_column="ContractUUID",
-                                      on_delete=models.deletion.CASCADE)
-    insuree = models.ForeignKey(Insuree, db_column='InsureeID',
-                                              on_delete=models.deletion.DO_NOTHING)
-    contribution_plan_bundle = models.ForeignKey(ContributionPlanBundle,
-                                                 db_column='ContributionPlanBundleUUID',
-                                                 on_delete=models.deletion.DO_NOTHING)
+    contract = models.ForeignKey(
+        Contract, db_column="ContractUUID", on_delete=models.deletion.CASCADE
+    )
+    insuree = models.ForeignKey(
+        Insuree, db_column="InsureeID", on_delete=models.deletion.DO_NOTHING
+    )
+    contribution_plan_bundle = models.ForeignKey(
+        ContributionPlanBundle,
+        db_column="ContributionPlanBundleUUID",
+        on_delete=models.deletion.DO_NOTHING,
+    )
 
-    json_param = models.JSONField(db_column='Json_param', blank=True, null=True)
+    json_param = models.JSONField(db_column="Json_param", blank=True, null=True)
 
     objects = ContractDetailsManager()
 
@@ -127,7 +160,7 @@ class ContractDetails(core_models.HistoryModel):
         return queryset
 
     class Meta:
-        db_table = 'tblContractDetails'
+        db_table = "tblContractDetails"
 
 
 class ContractContributionPlanDetailsManager(models.Manager):
@@ -136,19 +169,33 @@ class ContractContributionPlanDetailsManager(models.Manager):
         for key in keys:
             new_key = key.replace("itemsvc", self.model.model_prefix)
             kwargs[new_key] = kwargs.pop(key)
-        return super(ContractContributionPlanDetailsManager, self).filter(*args, **kwargs)
+        return super(ContractContributionPlanDetailsManager, self).filter(
+            *args, **kwargs
+        )
 
 
 class ContractContributionPlanDetails(core_models.HistoryBusinessModel):
-    contribution_plan = models.ForeignKey(ContributionPlan, db_column='ContributionPlanUUID',
-                                          on_delete=models.deletion.DO_NOTHING)
-    policy = models.ForeignKey(Policy, db_column='PolicyID',
-                               on_delete=models.deletion.DO_NOTHING)
-    contract_details = models.ForeignKey(ContractDetails, db_column='ContractDetailsUUID',
-                                         on_delete=models.deletion.CASCADE)
-    contribution = models.ForeignKey(Premium, db_column='ContributionId',
-                                     related_name='contract_contribution_plan_details', on_delete=models.deletion.DO_NOTHING,
-                                     blank=True, null=True)
+    contribution_plan = models.ForeignKey(
+        ContributionPlan,
+        db_column="ContributionPlanUUID",
+        on_delete=models.deletion.DO_NOTHING,
+    )
+    policy = models.ForeignKey(
+        Policy, db_column="PolicyID", on_delete=models.deletion.DO_NOTHING
+    )
+    contract_details = models.ForeignKey(
+        ContractDetails,
+        db_column="ContractDetailsUUID",
+        on_delete=models.deletion.CASCADE,
+    )
+    contribution = models.ForeignKey(
+        Premium,
+        db_column="ContributionId",
+        related_name="contract_contribution_plan_details",
+        on_delete=models.deletion.DO_NOTHING,
+        blank=True,
+        null=True,
+    )
 
     objects = ContractContributionPlanDetailsManager()
 
@@ -164,12 +211,14 @@ class ContractContributionPlanDetails(core_models.HistoryBusinessModel):
         return queryset
 
     class Meta:
-        db_table = 'tblContractContributionPlanDetails'
+        db_table = "tblContractContributionPlanDetails"
 
 
 class ContractMutation(core_models.UUIDModel, core_models.ObjectMutation):
-    contract = models.ForeignKey(Contract, models.DO_NOTHING, related_name='mutations')
-    mutation = models.ForeignKey(core_models.MutationLog, models.DO_NOTHING, related_name='contracts')
+    contract = models.ForeignKey(Contract, models.DO_NOTHING, related_name="mutations")
+    mutation = models.ForeignKey(
+        core_models.MutationLog, models.DO_NOTHING, related_name="contracts"
+    )
 
     class Meta:
         managed = True
@@ -177,8 +226,12 @@ class ContractMutation(core_models.UUIDModel, core_models.ObjectMutation):
 
 
 class ContractDetailsMutation(core_models.UUIDModel, core_models.ObjectMutation):
-    contract_detail = models.ForeignKey(ContractDetails, models.DO_NOTHING, related_name='mutations')
-    mutation = models.ForeignKey(core_models.MutationLog, models.DO_NOTHING, related_name='contract_details')
+    contract_detail = models.ForeignKey(
+        ContractDetails, models.DO_NOTHING, related_name="mutations"
+    )
+    mutation = models.ForeignKey(
+        core_models.MutationLog, models.DO_NOTHING, related_name="contract_details"
+    )
 
     class Meta:
         managed = True
