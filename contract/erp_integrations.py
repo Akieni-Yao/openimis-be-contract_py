@@ -285,6 +285,15 @@ def erp_payment_method_line(request, journal_id):
         logger.error(f"An error occurred: {e}")
         return JsonResponse({"error": f"An error occurred: {e}"}, status=500)
 
+def erp_payment_method_line_object(request, journal_id):
+    if journal_id:
+        url = f'{erp_url}/get/payment-method/{journal_id}'
+        logger.debug(f"====== get_payment_method : url : {url} ======")
+        response = requests.get(url, headers=headers1, verify=False)
+
+        if response.status_code == 200:
+            return response.json()
+    return None
 
 def post_bill_invoice(invoice_id: str):
     url = f"{erp_url}/post/invoice/{invoice_id}"
