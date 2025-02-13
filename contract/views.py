@@ -296,6 +296,11 @@ def update_contract_salaries(request, contract_id):
 
                 # Extract the chf_id and new salary
                 chf_id = line.get("Numéro CAMU temporaire")
+                print("======================================= chf_id: %s", chf_id)
+
+                if not chf_id or pd.isna(chf_id):
+                    print("======================================= no chf_id Skipped")
+                    continue
                 new_gross_salary = int(line.get("Gross Salary"))
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
