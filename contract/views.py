@@ -88,6 +88,7 @@ def generate_multi_contract_excel_data(contract_detail):
 
         return contract_data
     except Exception as e:
+        print(e)
         return None
 
 
@@ -102,7 +103,17 @@ def multi_contract(request, contract_id):
         if contract_data:
             all_contract_data.append(contract_data)
     if not all_contract_data:
-        return None
+        all_contract_data.append({
+            "Assuré": "",
+            "Numéro CAMU": "",
+            "Numéro CAMU temporaire": "",
+            "Ensemble du plan de contribution": "",
+            "Gross Salary": "",
+            "Cotisation de l'employeur": "",
+            "Cotisation des employés": "",
+            "Total": "",
+        })
+        # return None
     # Create a DataFrame from all the contract data
     df = pd.DataFrame(all_contract_data)
     response = HttpResponse(
