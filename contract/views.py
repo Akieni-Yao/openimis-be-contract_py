@@ -255,6 +255,8 @@ def update_contract_salaries(request, contract_id):
     total_salaries_updated = 0
     total_validation_errors = 0
 
+    print("======================================= update contract salaries")
+
     try:
         logger.debug("Reading the uploaded Excel file")
         df = pd.read_excel(file)
