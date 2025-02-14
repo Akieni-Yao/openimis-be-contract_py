@@ -3,7 +3,7 @@ from policy.models import Policy
 from .config import get_message_approved_contract
 from .email_report import generate_report_for_employee_declaration
 from .models import Contract, ContractContributionPlanDetails
-from core.signals import register_service_signal, bind_service_signal
+from core.signals import Signal, register_service_signal, bind_service_signal
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.conf import settings
@@ -18,13 +18,20 @@ from policy.signals import signal_check_formal_sector_for_policy
 from policyholder.apps import PolicyholderConfig
 from policyholder.models import PolicyHolderUser, PolicyHolderInsuree
 from insuree.models import InsureePolicy, Insuree, Family
-from .signals_definitions import signal_contract, signal_contract_approve
-from .views import multi_contract, send_contract
 
 import logging
 import calendar
 
+from .views import multi_contract, send_contract
+
 logger = logging.getLogger("openimis." + __name__)
+
+_contract_signal_params = ["contract", "user"]
+_contract_approve_signal_params = ["contract", "user", "contract_details_list", "service_object", "payment_service",
+                                   "ccpd_service"]
+signal_contract = Signal(providing_args=_contract_signal_params)
+signal_contract_approve = Signal(providing_args=_contract_signal_params)
+
 
 def on_contract_signal(sender, **kwargs):
     contract = kwargs["contract"]
