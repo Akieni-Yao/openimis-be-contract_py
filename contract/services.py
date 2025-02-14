@@ -11,7 +11,7 @@ from contract.models import (
     ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
 )
 from contract.models import ContractDetails as ContractDetailsModel
-from contract.signals_definitions import signal_contract, signal_contract_approve
+from contract.signals import signal_contract, signal_contract_approve
 from contribution.models import Premium
 from contribution_plan.models import ContributionPlan, ContributionPlanBundleDetails
 from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
@@ -187,7 +187,7 @@ class Contract(object):
                 )
             # approvable scenario
             if self.__check_rights_by_status(updated_contract.state) == "approvable":
-                # in "Negotiable" changes are possible only with the authority "Approve/ask for change"
+                # in “Negotiable” changes are possible only with the authority “Approve/ask for change”
                 if not self.user.has_perms(ContractConfig.gql_mutation_approve_ask_for_change_contract_perms):
                     raise PermissionError("Unauthorized")
                 return _output_result_success(
@@ -472,7 +472,7 @@ class Contract(object):
             # TO DO : if a policyholder is set, the contract details must be removed and PHinsuree imported again
             renewed_contract.id = None
             # Date to (the previous contract) became date From of the new contract (TBC if we need to add 1 day)
-            # Date To of the new contract is calculated by DateFrom new contract + "Duration in month of previous contract"
+            # Date To of the new contract is calculated by DateFrom new contract + “Duration in month of previous contract“
             length_contract = (contract_to_renew.date_valid_to.year - contract_to_renew.date_valid_from.year) * 12 \
                               + (contract_to_renew.date_valid_to.month - contract_to_renew.date_valid_from.month)
             renewed_contract.date_valid_from = contract_to_renew.date_valid_to + datetimedelta(days=1)
@@ -1189,7 +1189,7 @@ class ContractContributionPlanDetails(object):
                     ccpd_object.save(username=self.user.username)
                     contribution_record = model_to_dict(contribution)
                     contribution_list.append(contribution_record)
-            dict_representation["contributions"] = contribution_list
+                    dict_representation["contributions"] = contribution_list
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             return _output_exception(
