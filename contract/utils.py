@@ -212,7 +212,3 @@ def generate_report_for_contract_receipt(contract_id, info):
         raise  # Re-raise the exception or handle it according to your requirements
     print("PDF not generated.")
     return None  # Handle the case where no PDF is generated
-
-
-def shared_functionality():
-    pass

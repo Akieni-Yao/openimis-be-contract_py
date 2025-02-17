@@ -2,24 +2,14 @@ import io
 import json
 import logging
 
-from datetime import datetime, timedelta
 import pandas as pd
-from contract.models import ContractDetails, Contract
+from contract.models import ContractDetails
 from contribution_plan.models import ContributionPlanBundleDetails
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
-from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
+from policyholder.models import PolicyHolderInsuree
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from insuree.models import Insuree, Gender, Family, InsureePolicy
-from policyholder.views import get_or_create_insuree_from_line, generate_available_chf_id
-from insuree.dms_utils import (
-    create_openKm_folder_for_bulkupload,
-    send_mail_to_temp_insuree_with_pdf,
-)
-from workflow.workflow_stage import insuree_add_to_workflow
-from insuree.abis_api import create_abis_insuree
-
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +78,6 @@ def generate_multi_contract_excel_data(contract_detail):
 
         return contract_data
     except Exception as e:
-        print(e)
         return None
 
 
@@ -103,17 +92,7 @@ def multi_contract(request, contract_id):
         if contract_data:
             all_contract_data.append(contract_data)
     if not all_contract_data:
-        all_contract_data.append({
-            "Assuré": "",
-            "Numéro CAMU": "",
-            "Numéro CAMU temporaire": "",
-            "Ensemble du plan de contribution": "",
-            "Gross Salary": "",
-            "Cotisation de l'employeur": "",
-            "Cotisation des employés": "",
-            "Total": "",
-        })
-        # return None
+        return None
     # Create a DataFrame from all the contract data
     df = pd.DataFrame(all_contract_data)
     response = HttpResponse(
@@ -268,162 +247,13 @@ def send_contract(contract_id):
     return excel_buffer.getvalue()
 
 
-def map_enrolment_type_to_category(enrolment_type):
-    # Define the mapping from input values to categories
-    enrolment_type_mapping = {
-        "Agents de l'Etat": "public_Employees",
-        "Salariés du privé": "private_sector_employees",
-        "Travailleurs indépendants et professions libérales": "Selfemployed_and_liberal_professions",
-        "Pensionnés CRF et CNSS": "CRF_and_CNSS_pensioners",
-        "Personnes vulnérables": "vulnerable_Persons",
-        "Etudiants": "students",
-        "Pensionnés de la CRF et CNSS": "CRF_and_CNSS_pensioners",
-    }
-
-    # Check if the enrolment type exists in the mapping dictionary
-    if enrolment_type in enrolment_type_mapping:
-        return enrolment_type_mapping[enrolment_type]
-    else:
-        # If the value doesn't match any predefined category, you can handle it accordingly.
-        # For example, set a default category or raise an exception.
-        return None
-    
-def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type):
-    # split insuree_name by space
-    insuree_name_parts = insuree_name.split(" ")
-    last_name = insuree_name_parts[0]
-    other_names = " ".join(insuree_name_parts[1:])
-    
-    village = policy_holder.locations
-    
-    dob = datetime.strptime("2007-03-03", "%Y-%m-%d")
-    
-    print("======================================= other_names: %s", other_names)
-    print("======================================= last_name: %s", last_name)
-    print("======================================= village: %s", village.code)
-    
-    insuree_by_name = Insuree.objects.filter(
-        other_names=other_names,
-        last_name=last_name,
-        dob=dob,
-        validity_to__isnull=True,
-        legacy_id__isnull=True,
-    ).first()
-    
-    if insuree_by_name:
-        print("======================================= insuree_by_name already exists: %s", insuree_by_name)
-        return None
-    
-    family = None
-    insuree_created = None
-    
-    if village:
-        family = Family.objects.create(
-        head_insuree_id=1,  # dummy
-        location=village,
-        audit_user_id=user_id,
-        status="PRE_REGISTERED",
-        address="",
-        json_ext={"enrolmentType": map_enrolment_type_to_category(enrolment_type)},
-        )
-        
-    if family:
-        
-        insuree_id = generate_available_chf_id(
-            "M",
-            village,
-            dob,
-            enrolment_type,
-        )
-        insuree_created = Insuree.objects.create(
-            other_names=other_names,
-            last_name=last_name,
-            dob=dob,
-            family=family,
-            audit_user_id=user_id,
-            card_issued=False,
-            chf_id=insuree_id,
-            head=True,
-            current_village=village,
-            created_by=user_id,
-            modified_by=user_id,
-            marital="",
-            # gender="M",
-            # current_address="",
-            # phone="",
-            # email=line[HEADER_EMAIL],
-            json_ext={
-                "insureeEnrolmentType": map_enrolment_type_to_category(enrolment_type),
-                # "insureelocations": response_data,
-                # "BirthPlace": line[HEADER_BIRTH_LOCATION_CODE],
-                # "insureeaddress": line[HEADER_ADDRESS],
-            },
-        )
-        chf_id = insuree_id
-        
-        try:
-            user = request.user
-            create_openKm_folder_for_bulkupload(user, insuree_created)
-        except Exception as e:
-            logger.error(f"insuree bulk upload error for dms: {e}")
-            
-            
-        try:
-            insuree_add_to_workflow(
-                None, insuree_created.id, "INSUREE_ENROLLMENT", "Pre_Register"
-            )
-            create_abis_insuree(None, insuree_created)
-        except Exception as e:
-            logger.error(f"insuree bulk upload error for abis or workflow : {e}")
-            
-        phi = PolicyHolderInsuree(
-            insuree=insuree_created,
-            policy_holder=policy_holder,
-            contribution_plan_bundle=cpb,
-            json_ext={},
-            employer_number=None,
-        )
-        phi.save(username=request.user.username)
-        
-        contract_detail = ContractDetails(
-            contract=contract,
-            insuree=insuree_created,
-            contribution_plan_bundle=cpb,
-            json_ext={},
-        )
-        contract_detail.save(username=request.user.username)
-        
-    print("======================================= created insuree: %s", chf_id)
-    return chf_id
-    
 @api_view(["POST"])
 def update_contract_salaries(request, contract_id):
     file = request.FILES["file"]
-    user_id = request.user.id_for_audit
     core_username = request.user.username
     total_lines = 0
     total_salaries_updated = 0
     total_validation_errors = 0
-    contract = Contract.objects.filter(id=contract_id).first()
-    policy_holder = PolicyHolder.objects.filter(code=contract.policy_holder.code).first()
-    ph_cpb = None
-    cpb = None
-    enrolment_type = None
-
-    print("======================================= update contract salaries")
-    
-    if not policy_holder:
-        return Response({"success": False, "message": "Policy holder not found"}, status=400)
-    
-    ph_cpb = PolicyHolderContributionPlan.objects.filter(
-                policy_holder=policy_holder, is_deleted=False
-            ).first()
-    
-    if ph_cpb:
-        cpb = ph_cpb.contribution_plan_bundle
-        
-    if cpb:
-        enrolment_type = cpb.name
 
     try:
         logger.debug("Reading the uploaded Excel file")
@@ -464,30 +294,6 @@ def update_contract_salaries(request, contract_id):
 
                 # Extract the chf_id and new salary
                 chf_id = line.get("Numéro CAMU temporaire")
-                print("======================================= chf_id: %s", chf_id)
-
-                if not chf_id or pd.isna(chf_id):
-                    insuree_name = line.get("Assuré")
-                    if not insuree_name or pd.isna(insuree_name):
-                        continue
-                    print("======================================= insuree_name: %s", insuree_name)
-                    
-                    chf_id = create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type)
-                    if not chf_id:
-                        continue
-                    
-                    exist_contract_details = ContractDetails.objects.filter(
-                        contract_id=contract_id, is_deleted=False
-                    )
-                    logger.debug(
-                        "Fetched %s existing contract details", len(exist_contract_details)
-                    )
-
-                    # Index existing contract details by chf_id for quick lookup
-                    contract_details_by_chf_id = {
-                        detail.insuree.chf_id: detail for detail in exist_contract_details
-                    }
-            
                 new_gross_salary = int(line.get("Gross Salary"))
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
