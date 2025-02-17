@@ -113,4 +113,4 @@ class ContractConfig(AppConfig):
         from core.models import ModuleConfiguration
         cfg = ModuleConfiguration.get_or_default(MODULE_NAME, DEFAULT_CFG)
         self._configure_permissions(cfg)
-        from . import signals
+        import contract.signals
