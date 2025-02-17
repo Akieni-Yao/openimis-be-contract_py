@@ -4,12 +4,15 @@ import logging
 
 import pandas as pd
 from contract.models import ContractDetails
+from contract.utils import create_new_insuree_and_add_contract_details
 from contribution_plan.models import ContributionPlanBundleDetails
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from policyholder.models import PolicyHolderInsuree
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from contract.models import ContractDetails, Contract
+from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
 
 logger = logging.getLogger(__name__)
 
@@ -250,10 +253,31 @@ def send_contract(contract_id):
 @api_view(["POST"])
 def update_contract_salaries(request, contract_id):
     file = request.FILES["file"]
+    user_id = request.user.id_for_audit
     core_username = request.user.username
     total_lines = 0
     total_salaries_updated = 0
     total_validation_errors = 0
+    contract = Contract.objects.filter(id=contract_id).first()
+    policy_holder = PolicyHolder.objects.filter(code=contract.policy_holder.code).first()
+    ph_cpb = None
+    cpb = None
+    enrolment_type = None
+
+    print("======================================= update contract salaries")
+
+    if not policy_holder:
+        return Response({"success": False, "message": "Policy holder not found"}, status=400)
+
+    ph_cpb = PolicyHolderContributionPlan.objects.filter(
+                policy_holder=policy_holder, is_deleted=False
+            ).first()
+
+    if ph_cpb:
+        cpb = ph_cpb.contribution_plan_bundle
+
+    if cpb:
+        enrolment_type = cpb.name
 
     print("======================================= update contract salaries")
 
@@ -296,6 +320,31 @@ def update_contract_salaries(request, contract_id):
 
                 # Extract the chf_id and new salary
                 chf_id = line.get("Numéro CAMU temporaire")
+                
+                print("======================================= chf_id: %s", chf_id)
+
+                if not chf_id or pd.isna(chf_id):
+                    insuree_name = line.get("Assuré")
+                    if not insuree_name or pd.isna(insuree_name):
+                        continue
+                    print("======================================= insuree_name: %s", insuree_name)
+
+                    chf_id = create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type)
+                    if not chf_id:
+                        continue
+
+                    exist_contract_details = ContractDetails.objects.filter(
+                        contract_id=contract_id, is_deleted=False
+                    )
+                    logger.debug(
+                        "Fetched %s existing contract details", len(exist_contract_details)
+                    )
+
+                    # Index existing contract details by chf_id for quick lookup
+                    contract_details_by_chf_id = {
+                        detail.insuree.chf_id: detail for detail in exist_contract_details
+                    }
+                    
                 new_gross_salary = int(line.get("Gross Salary"))
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
