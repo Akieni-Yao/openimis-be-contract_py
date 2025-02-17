@@ -12,8 +12,7 @@ from core.models import User
 from payment.models import Payment
 # from policyholder.models import PolicyHolder
 from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
-from insuree.models import Insuree, Gender, Family, InsureePolicy
-from policyholder.views import get_or_create_insuree_from_line, generate_available_chf_id
+from insuree.models import Insuree, Family
 from insuree.dms_utils import (
     create_openKm_folder_for_bulkupload,
     send_mail_to_temp_insuree_with_pdf,
@@ -25,7 +24,7 @@ from contribution_plan.models import ContributionPlanBundleDetails
 
 logger = logging.getLogger(__name__)
 
-def resolve_custom_field_2(detail):
+def resolve_custom_field(detail):
         try:
             cpb = detail.contribution_plan_bundle
             cpbd = ContributionPlanBundleDetails.objects.filter(
@@ -73,6 +72,11 @@ def resolve_custom_field_2(detail):
                 'total': total,
                 'employerContribution': employer_contribution,
                 'salaryShare': salary_share,
+            }
+            response = {
+                'total': 0,
+                'employerContribution': None,
+                'salaryShare': 0,
             }
             return response
         except Exception as e:
@@ -210,7 +214,7 @@ def generate_report_for_contract_receipt(contract_id, info):
 
                 for detail in contract_details:
                     jsonExt = detail.json_ext
-                    customField = resolve_custom_field_2(detail)
+                    customField = resolve_custom_field(detail)
                     print(
                         f"=========================================== customField {customField}"
                     )
@@ -303,6 +307,7 @@ def map_enrolment_type_to_category(enrolment_type):
         return None
     
 def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type):
+    from policyholder.views import generate_available_chf_id
     # split insuree_name by space
     insuree_name_parts = insuree_name.split(" ")
     last_name = insuree_name_parts[0]

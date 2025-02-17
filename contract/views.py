@@ -4,7 +4,6 @@ import logging
 
 import pandas as pd
 from contract.models import ContractDetails
-from contract.utils import create_new_insuree_and_add_contract_details
 from contribution_plan.models import ContributionPlanBundleDetails
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
@@ -13,6 +12,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from contract.models import ContractDetails, Contract
 from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
+from contract.utils import create_new_insuree_and_add_contract_details
+
 
 logger = logging.getLogger(__name__)
 
@@ -107,58 +108,58 @@ def multi_contract(request, contract_id):
     return response
 
 
-def resolve_custom_field(detail):
-        try:
-            cpb = detail.contribution_plan_bundle
-            cpbd = ContributionPlanBundleDetails.objects.filter(
-                contribution_plan_bundle=cpb,
-                is_deleted=False
-            ).first()
-            conti_plan = cpbd.contribution_plan if cpbd else None
-            ercp = 0
-            eecp = 0
-            if conti_plan and conti_plan.json_ext:
-                json_data = conti_plan.json_ext
-                calculation_rule = json_data.get('calculation_rule')
-                if calculation_rule:
-                    ercp = float(calculation_rule.get(
-                        'employerContribution', 0.0))
-                    eecp = float(calculation_rule.get(
-                        'employeeContribution', 0.0))
+# def resolve_custom_field(detail):
+#         try:
+#             cpb = detail.contribution_plan_bundle
+#             cpbd = ContributionPlanBundleDetails.objects.filter(
+#                 contribution_plan_bundle=cpb,
+#                 is_deleted=False
+#             ).first()
+#             conti_plan = cpbd.contribution_plan if cpbd else None
+#             ercp = 0
+#             eecp = 0
+#             if conti_plan and conti_plan.json_ext:
+#                 json_data = conti_plan.json_ext
+#                 calculation_rule = json_data.get('calculation_rule')
+#                 if calculation_rule:
+#                     ercp = float(calculation_rule.get(
+#                         'employerContribution', 0.0))
+#                     eecp = float(calculation_rule.get(
+#                         'employeeContribution', 0.0))
 
-            # Uncommented lines can be used if needed for future logic
-            # insuree = self.insuree
-            # policy_holder = self.contract.policy_holder
-            # phn_json = PolicyHolderInsuree.objects.filter(
-            #     insuree_id=insuree.id,
-            #     policy_holder__code=policy_holder.code,
-            #     policy_holder__date_valid_to__isnull=True,
-            #     policy_holder__is_deleted=False,
-            #     date_valid_to__isnull=True,
-            #     is_deleted=False
-            # ).first()
-            # if phn_json and phn_json.json_ext:
-            #     json_data = phn_json.json_ext
-            #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
-            self_json = detail.json_ext if detail.json_ext else None
-            ei = 0.0
-            if self_json:
-                ei = float(
-                    self_json.get('calculation_rule', {}).get('income', 0.0))
+#             # Uncommented lines can be used if needed for future logic
+#             # insuree = self.insuree
+#             # policy_holder = self.contract.policy_holder
+#             # phn_json = PolicyHolderInsuree.objects.filter(
+#             #     insuree_id=insuree.id,
+#             #     policy_holder__code=policy_holder.code,
+#             #     policy_holder__date_valid_to__isnull=True,
+#             #     policy_holder__is_deleted=False,
+#             #     date_valid_to__isnull=True,
+#             #     is_deleted=False
+#             # ).first()
+#             # if phn_json and phn_json.json_ext:
+#             #     json_data = phn_json.json_ext
+#             #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
+#             self_json = detail.json_ext if detail.json_ext else None
+#             ei = 0.0
+#             if self_json:
+#                 ei = float(
+#                     self_json.get('calculation_rule', {}).get('income', 0.0))
 
-            # Use integer arithmetic to avoid floating-point issues
-            employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
-            salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
-            total = salary_share + employer_contribution
+#             # Use integer arithmetic to avoid floating-point issues
+#             employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+#             salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
+#             total = salary_share + employer_contribution
 
-            response = {
-                'total': total,
-                'employerContribution': employer_contribution,
-                'salaryShare': salary_share,
-            }
-            return response
-        except Exception as e:
-            return None
+#             response = {
+#                 'total': total,
+#                 'employerContribution': employer_contribution,
+#                 'salaryShare': salary_share,
+#             }
+#             return response
+#         except Exception as e:
+#             return None
 
 def get_contract_custom_field_data(detail):
     cpb = detail.contribution_plan_bundle
@@ -322,6 +323,7 @@ def update_contract_salaries(request, contract_id):
                 chf_id = line.get("Numéro CAMU temporaire")
                 
                 print("======================================= chf_id: %s", chf_id)
+                
 
                 if not chf_id or pd.isna(chf_id):
                     insuree_name = line.get("Assuré")
@@ -345,7 +347,10 @@ def update_contract_salaries(request, contract_id):
                         detail.insuree.chf_id: detail for detail in exist_contract_details
                     }
                     
-                new_gross_salary = int(line.get("Gross Salary"))
+                gross_salary = line.get("Gross Salary")
+                if not gross_salary or pd.isna(gross_salary):
+                    continue
+                new_gross_salary = int(gross_salary)
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
                     chf_id,
