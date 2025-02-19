@@ -73,14 +73,15 @@ def resolve_custom_field(detail):
                 'employerContribution': employer_contribution,
                 'salaryShare': salary_share,
             }
+            
+            return response
+        except Exception as e:
             response = {
                 'total': 0,
                 'employerContribution': None,
                 'salaryShare': 0,
             }
             return response
-        except Exception as e:
-            return None
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
