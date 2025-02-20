@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 import logging
 
 from django.http import Http404, JsonResponse
-from contract.models import Contract, ContractDetails
+from contract.models import Contract, ContractDetails, ContractContributionPlanDetails
 # from contract.views import resolve_custom_field
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 from core.models import User
-from payment.models import Payment
+from payment.models import Payment, PaymentDetail
 # from policyholder.models import PolicyHolder
 from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
 from insuree.models import Insuree, Family
@@ -21,6 +21,7 @@ from insuree.dms_utils import (
 from workflow.workflow_stage import insuree_add_to_workflow
 from insuree.abis_api import create_abis_insuree
 from contribution_plan.models import ContributionPlanBundleDetails
+from datetime import datetime as dt
 
 logger = logging.getLogger(__name__)
 
@@ -415,3 +416,70 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
         
     print("======================================= created insuree: %s", chf_id)
     return chf_id
+
+def get_period_from_date(date_value):
+    try:
+        if isinstance(date_value, int):
+            return date_value
+        elif isinstance(date_value, str):
+            return dt.strptime(date_value, "%Y-%m-%d").date().day
+    except Exception as e:
+        logger.error(f"Error getting period from date: {e}")
+        return None
+
+def get_payment_product_config(payment):
+    logger.debug("====  get_payment_product_config  : Start  ====")
+    payment_details = PaymentDetail.objects.filter(
+        payment=payment, legacy_id__isnull=True
+    ).first()
+    if payment_details:
+        ccpd = ContractContributionPlanDetails.objects.filter(
+            contribution__id=payment_details.premium.id
+        ).first()
+        if ccpd:
+            product_config = ccpd.contribution_plan.benefit_plan.config_data
+            # product_config : {'paymentEndDate': '2024-11-05', 'sanctionAmount': 5000000, 'firstPenaltyRate': 3, 'paymentStartDate': '2024-10-20', 'secondPenaltyRate': 3, 'declarationEndDate': '2024-11-05', 'declarationStartDate': '2024-10-20'}
+            logger.debug(
+                f"====  get_payment_product_config  : product_config : {product_config}  ===="
+            )
+            logger.debug("====  get_payment_product_config  : End  ====")
+            return product_config
+    logger.debug("====  get_payment_product_config  : End  ====")
+    return None
+
+def get_next_month_limit_date(cpb_date, contract_date):
+    from dateutil.relativedelta import relativedelta
+    try:
+
+        new_date = None
+        current_day = None
+
+        if cpb_date:
+            current_day = get_period_from_date(cpb_date)
+
+        if contract_date:
+            new_date = contract_date.replace(day=current_day) + relativedelta(months=1)
+
+        if hasattr(datetime.date, "from_ad_date"):
+            new_date = datetime.date.from_ad_date(new_date)
+        return new_date
+    except Exception as e:
+        logger.error(f"Error getting next month limit date: {e}")
+        return None
+
+def get_due_payment_date(contract):
+    payment = Payment.objects.filter(contract=contract).first()
+    payment_due_date = None
+    if payment:
+        product_config = get_payment_product_config(payment)
+        payment_end_date = product_config.get("paymentEndDate")
+        now = datetime.now().date()
+        payment_due_date=get_next_month_limit_date(payment_end_date, now)
+    logger.info("**************************************************************")
+    logger.info(f"config_payment_end_date  : {product_config['paymentEndDate']}")
+    logger.info(f"payment_due_date  : {payment_due_date}")
+    logger.info(f"now  : {now}")
+    logger.info("**************************************************************")
+    return payment_due_date
+
+
