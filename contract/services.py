@@ -35,6 +35,7 @@ from payment.payment_utils import (
 from payment.services import update_or_create_payment
 from policy.models import Policy
 from policyholder.models import PolicyHolder, PolicyHolderInsuree
+from contract.utils import get_due_payment_date
 
 from .config import get_message_counter_contract
 
@@ -356,6 +357,11 @@ class Contract(object):
             id_contract_approved = f"{contract_to_approve.id}"
             logger.info(f"contract service approve : id_contract_approved = {id_contract_approved}")
             dict_representation["id"], dict_representation["uuid"] = id_contract_approved, id_contract_approved
+
+            payment_due_date = get_due_payment_date(contract_to_approve)
+            ContractModel.objects.filter(id=contract_id).update(
+                date_payment_due=payment_due_date)
+
             try:
                 create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
                 logger.info("Sent Notification.")
