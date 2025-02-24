@@ -357,6 +357,8 @@ def update_contract_salaries(request, contract_id):
 
                 if chf_id in contract_details_by_chf_id:
                     contract_detail = contract_details_by_chf_id[chf_id]
+                    print(f"---------------------------contract_detail: {contract_detail.json_ext}")
+                    
                     current_salary = (
                         int(
                             contract_detail.json_ext.get("calculation_rule", {}).get(
@@ -364,18 +366,34 @@ def update_contract_salaries(request, contract_id):
                             )
                         )
                         if contract_detail.json_ext
-                        else None
+                        else 0
                     )
+                    
+                    print(f"---------------------------current_salary: {current_salary}")
+                    print(f"---------------------------new_gross_salary: {new_gross_salary}")
+                    
                     logger.debug(
                         "Current salary for chf_id %s is %s", chf_id, current_salary
                     )
+                    
+                    if current_salary == 0:
+                        # json_ext: {'calculation_rule': {'rate': 0, 'income': '69000'}}
+                        contract_detail.json_ext = {
+                            "calculation_rule": {
+                                "rate": 0,
+                                "income": new_gross_salary
+                            }
+                        }
+                        # contract_detail.save(username=core_username)
 
                     # Check if the salary has changed
                     if current_salary != new_gross_salary:
                         logger.debug("Updating salary for chf_id %s", chf_id)
+                        print(f"---------------------------contract_detail.json_ext: {contract_detail.json_ext}")
                         json_data = update_salary(
                             contract_detail.json_ext, new_gross_salary
                         )
+                        print(f"---------------------------json_data: {json_data}")
                         if json_data is None:
                             raise ValueError(
                                 f"Failed to update salary for chf_id {chf_id}"
