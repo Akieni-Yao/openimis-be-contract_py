@@ -32,6 +32,7 @@ class ContractCreateMutationMixin:
         if "client_mutation_label" in data:
             data.pop('client_mutation_label')
         output = cls.create_contract(user=user, contract=data)
+        print(f"---------------------------output: {output}")
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
             try:
@@ -42,7 +43,8 @@ class ContractCreateMutationMixin:
             ContractMutation.object_mutated(user, client_mutation_id=client_mutation_id, contract=contract)
             return None
         else:
-            return f"Error! - {output['message']}: {output['detail']}"
+            print(f"Error! - {output['message']}: {output['detail']}")
+            return None
 
     @classmethod
     def create_contract(cls, user, contract):
