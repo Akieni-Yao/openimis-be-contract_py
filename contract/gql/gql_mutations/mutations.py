@@ -44,7 +44,7 @@ class ContractCreateMutationMixin:
             return None
         else:
             print(f"Error! - {output['message']}: {output['detail']}")
-            return None
+            raise Exception(f"Error! {output['detail']}")
 
     @classmethod
     def create_contract(cls, user, contract):
