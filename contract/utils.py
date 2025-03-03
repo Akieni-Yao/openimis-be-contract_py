@@ -5,13 +5,19 @@ import logging
 
 from django.http import Http404, JsonResponse
 from contract.models import Contract, ContractDetails, ContractContributionPlanDetails
+
 # from contract.views import resolve_custom_field
 from report.apps import ReportConfig
 from report.services import get_report_definition, generate_report
 from core.models import User
 from payment.models import Payment, PaymentDetail
+
 # from policyholder.models import PolicyHolder
-from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
+from policyholder.models import (
+    PolicyHolderInsuree,
+    PolicyHolder,
+    PolicyHolderContributionPlan,
+)
 from insuree.models import Insuree, Family
 from insuree.dms_utils import (
     create_openKm_folder_for_bulkupload,
@@ -25,64 +31,61 @@ from datetime import datetime as dt
 
 logger = logging.getLogger(__name__)
 
+
 def resolve_custom_field(detail):
-        try:
-            cpb = detail.contribution_plan_bundle
-            cpbd = ContributionPlanBundleDetails.objects.filter(
-                contribution_plan_bundle=cpb,
-                is_deleted=False
-            ).first()
-            conti_plan = cpbd.contribution_plan if cpbd else None
-            ercp = 0
-            eecp = 0
-            if conti_plan and conti_plan.json_ext:
-                json_data = conti_plan.json_ext
-                calculation_rule = json_data.get('calculation_rule')
-                if calculation_rule:
-                    ercp = float(calculation_rule.get(
-                        'employerContribution', 0.0))
-                    eecp = float(calculation_rule.get(
-                        'employeeContribution', 0.0))
+    try:
+        cpb = detail.contribution_plan_bundle
+        cpbd = ContributionPlanBundleDetails.objects.filter(
+            contribution_plan_bundle=cpb, is_deleted=False
+        ).first()
+        conti_plan = cpbd.contribution_plan if cpbd else None
+        ercp = 0
+        eecp = 0
+        if conti_plan and conti_plan.json_ext:
+            json_data = conti_plan.json_ext
+            calculation_rule = json_data.get("calculation_rule")
+            if calculation_rule:
+                ercp = float(calculation_rule.get("employerContribution", 0.0))
+                eecp = float(calculation_rule.get("employeeContribution", 0.0))
 
-            # Uncommented lines can be used if needed for future logic
-            # insuree = self.insuree
-            # policy_holder = self.contract.policy_holder
-            # phn_json = PolicyHolderInsuree.objects.filter(
-            #     insuree_id=insuree.id,
-            #     policy_holder__code=policy_holder.code,
-            #     policy_holder__date_valid_to__isnull=True,
-            #     policy_holder__is_deleted=False,
-            #     date_valid_to__isnull=True,
-            #     is_deleted=False
-            # ).first()
-            # if phn_json and phn_json.json_ext:
-            #     json_data = phn_json.json_ext
-            #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
-            self_json = detail.json_ext if detail.json_ext else None
-            ei = 0.0
-            if self_json:
-                ei = float(
-                    self_json.get('calculation_rule', {}).get('income', 0.0))
+        # Uncommented lines can be used if needed for future logic
+        # insuree = self.insuree
+        # policy_holder = self.contract.policy_holder
+        # phn_json = PolicyHolderInsuree.objects.filter(
+        #     insuree_id=insuree.id,
+        #     policy_holder__code=policy_holder.code,
+        #     policy_holder__date_valid_to__isnull=True,
+        #     policy_holder__is_deleted=False,
+        #     date_valid_to__isnull=True,
+        #     is_deleted=False
+        # ).first()
+        # if phn_json and phn_json.json_ext:
+        #     json_data = phn_json.json_ext
+        #     ei = float(json_data.get('calculation_rule', {}).get('income', 0))
+        self_json = detail.json_ext if detail.json_ext else None
+        ei = 0.0
+        if self_json:
+            ei = float(self_json.get("calculation_rule", {}).get("income", 0.0))
 
-            # Use integer arithmetic to avoid floating-point issues
-            employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
-            salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
-            total = salary_share + employer_contribution
+        # Use integer arithmetic to avoid floating-point issues
+        employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+        salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
+        total = salary_share + employer_contribution
 
-            response = {
-                'total': total,
-                'employerContribution': employer_contribution,
-                'salaryShare': salary_share,
-            }
-            
-            return response
-        except Exception as e:
-            response = {
-                'total': 0,
-                'employerContribution': None,
-                'salaryShare': 0,
-            }
-            return response
+        response = {
+            "total": total,
+            "employerContribution": employer_contribution,
+            "salaryShare": salary_share,
+        }
+
+        return response
+    except Exception as e:
+        response = {
+            "total": 0,
+            "employerContribution": None,
+            "salaryShare": 0,
+        }
+        return response
 
 
 def filter_amount_contract(arg="amount_from", arg2="amount_to", **kwargs):
@@ -217,8 +220,10 @@ def generate_report_for_contract_receipt(contract_id, info):
                 for detail in contract_details:
                     jsonExt = detail.json_ext
                     customField = resolve_custom_field(detail)
+                    if jsonExt is None:
+                        jsonExt = {"calculation_rule": {"income": 0}}
                     print(
-                        f"=========================================== customField {customField}"
+                        f"=========================================== customField {customField} jsonExt {jsonExt}"
                     )
                     total_salary_brut += (
                         int(jsonExt["calculation_rule"]["income"])
@@ -307,22 +312,26 @@ def map_enrolment_type_to_category(enrolment_type):
         # If the value doesn't match any predefined category, you can handle it accordingly.
         # For example, set a default category or raise an exception.
         return None
-    
-def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type):
+
+
+def create_new_insuree_and_add_contract_details(
+    insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type
+):
     from policyholder.views import generate_available_chf_id
+
     # split insuree_name by space
     insuree_name_parts = insuree_name.split(" ")
     last_name = insuree_name_parts[0]
     other_names = " ".join(insuree_name_parts[1:])
-    
+
     village = policy_holder.locations
-    
+
     dob = datetime.strptime("2007-03-03", "%Y-%m-%d")
-    
+
     print("======================================= other_names: %s", other_names)
     print("======================================= last_name: %s", last_name)
     print("======================================= village: %s", village.code)
-    
+
     insuree_by_name = Insuree.objects.filter(
         other_names=other_names,
         last_name=last_name,
@@ -330,26 +339,28 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
         validity_to__isnull=True,
         legacy_id__isnull=True,
     ).first()
-    
+
     if insuree_by_name:
-        print("======================================= insuree_by_name already exists: %s", insuree_by_name)
+        print(
+            "======================================= insuree_by_name already exists: %s",
+            insuree_by_name,
+        )
         return None
-    
+
     family = None
     insuree_created = None
-    
+
     if village:
         family = Family.objects.create(
-        head_insuree_id=1,  # dummy
-        location=village,
-        audit_user_id=user_id,
-        status="PRE_REGISTERED",
-        address="",
-        json_ext={"enrolmentType": map_enrolment_type_to_category(enrolment_type)},
+            head_insuree_id=1,  # dummy
+            location=village,
+            audit_user_id=user_id,
+            status="PRE_REGISTERED",
+            address="",
+            json_ext={"enrolmentType": map_enrolment_type_to_category(enrolment_type)},
         )
-        
+
     if family:
-        
         insuree_id = generate_available_chf_id(
             "M",
             village,
@@ -381,14 +392,13 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
             },
         )
         chf_id = insuree_id
-        
+
         try:
             user = request.user
             create_openKm_folder_for_bulkupload(user, insuree_created)
         except Exception as e:
             logger.error(f"insuree bulk upload error for dms: {e}")
-            
-            
+
         try:
             insuree_add_to_workflow(
                 None, insuree_created.id, "INSUREE_ENROLLMENT", "Pre_Register"
@@ -396,7 +406,7 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
             create_abis_insuree(None, insuree_created)
         except Exception as e:
             logger.error(f"insuree bulk upload error for abis or workflow : {e}")
-            
+
         phi = PolicyHolderInsuree(
             insuree=insuree_created,
             policy_holder=policy_holder,
@@ -405,7 +415,7 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
             employer_number=None,
         )
         phi.save(username=request.user.username)
-        
+
         contract_detail = ContractDetails(
             contract=contract,
             insuree=insuree_created,
@@ -413,9 +423,10 @@ def create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb
             json_ext={},
         )
         contract_detail.save(username=request.user.username)
-        
+
     print("======================================= created insuree: %s", chf_id)
     return chf_id
+
 
 def get_period_from_date(date_value):
     try:
@@ -426,6 +437,7 @@ def get_period_from_date(date_value):
     except Exception as e:
         logger.error(f"Error getting period from date: {e}")
         return None
+
 
 def get_payment_product_config(payment):
     logger.debug("====  get_payment_product_config  : Start  ====")
@@ -447,10 +459,11 @@ def get_payment_product_config(payment):
     logger.debug("====  get_payment_product_config  : End  ====")
     return None
 
+
 def get_next_month_limit_date(cpb_date, contract_date):
     from dateutil.relativedelta import relativedelta
-    try:
 
+    try:
         new_date = None
         current_day = None
 
@@ -467,6 +480,7 @@ def get_next_month_limit_date(cpb_date, contract_date):
         logger.error(f"Error getting next month limit date: {e}")
         return None
 
+
 def get_due_payment_date(contract):
     payment = Payment.objects.filter(contract=contract).first()
     payment_due_date = None
@@ -474,12 +488,10 @@ def get_due_payment_date(contract):
         product_config = get_payment_product_config(payment)
         payment_end_date = product_config.get("paymentEndDate")
         now = datetime.now().date()
-        payment_due_date=get_next_month_limit_date(payment_end_date, now)
+        payment_due_date = get_next_month_limit_date(payment_end_date, now)
     logger.info("**************************************************************")
     logger.info(f"config_payment_end_date  : {product_config['paymentEndDate']}")
     logger.info(f"payment_due_date  : {payment_due_date}")
     logger.info(f"now  : {now}")
     logger.info("**************************************************************")
     return payment_due_date
-
-
