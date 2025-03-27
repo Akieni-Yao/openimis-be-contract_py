@@ -484,7 +484,6 @@ class Contract(object):
             ContractModel.objects.filter(id=contract_id).update(
                 date_payment_due=payment_due_date
             )
-
             try:
                 create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
                 logger.info("Sent Notification.")
