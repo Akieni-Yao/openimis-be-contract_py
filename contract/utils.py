@@ -1,33 +1,33 @@
 import json
-from django.db.models import Q
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+from datetime import datetime as dt
 
-from django.http import Http404, JsonResponse
-from contract.models import Contract, ContractDetails, ContractContributionPlanDetails
-
-# from contract.views import resolve_custom_field
-from report.apps import ReportConfig
-from report.services import get_report_definition, generate_report
+from contribution_plan.models import ContributionPlanBundleDetails
 from core.models import User
-from payment.models import Payment, PaymentDetail
-
-# from policyholder.models import PolicyHolder
-from policyholder.models import (
-    PolicyHolderInsuree,
-    PolicyHolder,
-    PolicyHolderContributionPlan,
-)
-from insuree.models import Insuree, Family
+from django.db.models import Q
+from django.http import Http404, JsonResponse
+from insuree.abis_api import create_abis_insuree
 from insuree.dms_utils import (
     create_openKm_folder_for_bulkupload,
     send_mail_to_temp_insuree_with_pdf,
 )
+from insuree.models import Family, Insuree
+from payment.models import Payment, PaymentDetail
 
+# from policyholder.models import PolicyHolder
+from policyholder.models import (
+    PolicyHolder,
+    PolicyHolderContributionPlan,
+    PolicyHolderInsuree,
+)
+
+# from contract.views import resolve_custom_field
+from report.apps import ReportConfig
+from report.services import generate_report, get_report_definition
 from workflow.workflow_stage import insuree_add_to_workflow
-from insuree.abis_api import create_abis_insuree
-from contribution_plan.models import ContributionPlanBundleDetails
-from datetime import datetime as dt
+
+from contract.models import Contract, ContractContributionPlanDetails, ContractDetails
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +65,12 @@ def resolve_custom_field(detail):
         self_json = detail.json_ext if detail.json_ext else None
         ei = 0.0
         if self_json:
-            ei = float(self_json.get("calculation_rule", {}).get("income", 0.0))
+            ei = float(self_json.get(
+                "calculation_rule", {}).get("income", 0.0))
 
         # Use integer arithmetic to avoid floating-point issues
-        employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+        employer_contribution = (
+            ei * ercp / 100) if ercp and ei is not None else 0.0
         salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
         total = salary_share + employer_contribution
 
@@ -160,7 +162,8 @@ def generate_report_for_contract_receipt(contract_id, info):
 
     now = datetime.datetime.now()
     try:
-        contract = Contract.objects.filter(id=contract_id, is_deleted=False).first()
+        contract = Contract.objects.filter(
+            id=contract_id, is_deleted=False).first()
         payment = Payment.objects.filter(contract=contract).first()
         user = User.objects.filter(id=info.context.user.id).first()
         policy_holder = PolicyHolder.objects.filter(
@@ -170,7 +173,8 @@ def generate_report_for_contract_receipt(contract_id, info):
         print(f"==================================== contract {contract}")
         print(f"==================================== payment {payment}")
         print(f"==================================== user {user}")
-        print(f"==================================== policy_holder {policy_holder}")
+        print(
+            f"==================================== policy_holder {policy_holder}")
 
         locations = policy_holder.locations
         location = {
@@ -207,7 +211,8 @@ def generate_report_for_contract_receipt(contract_id, info):
                 total_due_pay = (
                     contract.amount_due if contract.amount_due is not None else 0
                 )
-                print(f"================================= info {info.context.user.id}")
+                print(
+                    f"================================= info {info.context.user.id}")
 
                 print(f"==================================== user {user}")
 
@@ -271,7 +276,8 @@ def generate_report_for_contract_receipt(contract_id, info):
                         "user_name": user_name,
                     }
                 }
-                print(f"=========================================== data {data}")
+                print(
+                    f"=========================================== data {data}")
                 report_name = "contract_referrals"
                 report_config = ReportConfig.get_report(report_name)
                 print("=========================================== report_config ")
@@ -357,7 +363,8 @@ def create_new_insuree_and_add_contract_details(
             audit_user_id=user_id,
             status="PRE_REGISTERED",
             address="",
-            json_ext={"enrolmentType": map_enrolment_type_to_category(enrolment_type)},
+            json_ext={"enrolmentType": map_enrolment_type_to_category(
+                enrolment_type)},
         )
 
     if family:
@@ -405,7 +412,8 @@ def create_new_insuree_and_add_contract_details(
             )
             create_abis_insuree(None, insuree_created)
         except Exception as e:
-            logger.error(f"insuree bulk upload error for abis or workflow : {e}")
+            logger.error(
+                f"insuree bulk upload error for abis or workflow : {e}")
 
         phi = PolicyHolderInsuree(
             insuree=insuree_created,
@@ -471,7 +479,8 @@ def get_next_month_limit_date(cpb_date, contract_date):
             current_day = get_period_from_date(cpb_date)
 
         if contract_date:
-            new_date = contract_date.replace(day=current_day) + relativedelta(months=1)
+            new_date = contract_date.replace(
+                day=current_day) + relativedelta(months=1)
 
         if hasattr(datetime.date, "from_ad_date"):
             new_date = datetime.date.from_ad_date(new_date)
@@ -487,11 +496,14 @@ def get_due_payment_date(contract):
     if payment:
         product_config = get_payment_product_config(payment)
         payment_end_date = product_config.get("paymentEndDate")
-        now = datetime.now().date()
-        payment_due_date = get_next_month_limit_date(payment_end_date, now)
-    logger.info("**************************************************************")
-    logger.info(f"config_payment_end_date  : {product_config['paymentEndDate']}")
+        contract_date_valid_to = contract.dateValidTo
+        # now = datetime.now().date()
+        payment_due_date = get_next_month_limit_date(
+            payment_end_date, contract_date_valid_to)
+    logger.info("************************************************************")
+    logger.info(
+        f"config_payment_end_date  : {product_config['paymentEndDate']}")
     logger.info(f"payment_due_date  : {payment_due_date}")
-    logger.info(f"now  : {now}")
-    logger.info("**************************************************************")
+    logger.info(f"contract_date_valid_to  : {contract_date_valid_to}")
+    logger.info("************************************************************")
     return payment_due_date
