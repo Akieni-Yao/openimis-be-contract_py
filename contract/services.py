@@ -3,6 +3,7 @@ import logging
 from copy import copy
 from datetime import datetime
 from decimal import Decimal
+import calendar
 
 from calculation.services import run_calculation_rules
 from contract.apps import ContractConfig
@@ -414,12 +415,14 @@ class Contract(object):
     @check_authentication
     def approve(self, contract):
         try:
+            logger.info("Approving contract")
             # check for approve/ask for change right perms/authorites
             if not self.user.has_perms(
                 ContractConfig.gql_mutation_approve_ask_for_change_contract_perms
             ):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
+            logger.info(f"contract {contract['id']}")
             logger.info(f"contract service approve : contract_id = {contract_id}")
             contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
             logger.info(
@@ -441,7 +444,7 @@ class Contract(object):
                 contract_to_approve.amendment,
                 contract_to_approve.date_valid_from,
             )
-
+            logger.info(f"contract_details_list {contract_details_list}")
             # Adding previous details in current contract
             prev_contract = (
                 ContractModel.objects.filter(
@@ -451,15 +454,17 @@ class Contract(object):
                 .exclude(id=contract_to_approve.id)
                 .order_by("-date_created")
             )
+            logger.info(f"prev_contract {prev_contract}")
             if len(prev_contract) > 0:
                 logger.info(
                     f"contract service approve : prev_contract = {prev_contract[0]}"
                 )
                 contract_to_approve.parent = prev_contract[0]
-
+                logger.info(f"contract_to_approve {contract_to_approve}")
             # send signal - approve contract
             ccpd_service = ContractContributionPlanDetails(user=self.user)
             payment_service = PaymentService(user=self.user)
+            logger.info("Signal contract approve")
             signal_contract_approve.send(
                 sender=ContractModel,
                 contract=contract_to_approve,
@@ -469,6 +474,7 @@ class Contract(object):
                 payment_service=payment_service,
                 ccpd_service=ccpd_service,
             )
+            logger.info("Sent signal")
             # ccpd.create_contribution(contract_contribution_plan_details)
             dict_representation = {}
             id_contract_approved = f"{contract_to_approve.id}"
@@ -479,17 +485,18 @@ class Contract(object):
                 id_contract_approved,
                 id_contract_approved,
             )
-
+            logger.info("Dict representation")
             payment_due_date = get_due_payment_date(contract_to_approve)
             ContractModel.objects.filter(id=contract_id).update(
                 date_payment_due=payment_due_date
             )
-
+            logger.info("Payment due date")
             try:
                 create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
                 logger.info("Sent Notification.")
             except Exception as e:
                 logger.error(f"Failed to call send notification: {e}")
+            logger.info("Output result success")
             return _output_result_success(dict_representation=dict_representation)
         except Exception as exc:
             logger.exception("Exception in approve contract")
@@ -1076,22 +1083,27 @@ class ContractContributionPlanDetails(object):
 
     def __create_contribution_from_policy(self, ccpd, policies):
         print(f"---------------------------ContractContributionPlanDetails policies: {policies}")
-        if len(policies) == 1:
+        
+        if policies:
             ccpd.policy = policies[0]
             ccpd.save(username=self.user.username)
             return [ccpd]
-        else:
-            # create second ccpd because another policy was created - copy object and save
-            ccpd_new = copy(ccpd)
-            ccpd_new.date_valid_from = ccpd.date_valid_from
-            ccpd_new.date_valid_to = policies[0].expiry_date
-            ccpd_new.policy = policies[0]
-            ccpd.date_valid_from = policies[0].expiry_date
-            ccpd.date_valid_to = ccpd.date_valid_to
-            ccpd.policy = policies[1]
-            ccpd_new.save(username=self.user.username)
-            ccpd.save(username=self.user.username)
-            return [ccpd_new, ccpd]
+        # if len(policies) == 1:
+        #     ccpd.policy = policies[0]
+        #     ccpd.save(username=self.user.username)
+        #     return [ccpd]
+        # else:
+        #     # create second ccpd because another policy was created - copy object and save
+        #     ccpd_new = copy(ccpd)
+        #     ccpd_new.date_valid_from = ccpd.date_valid_from
+        #     ccpd_new.date_valid_to = policies[0].expiry_date
+        #     ccpd_new.policy = policies[0]
+        #     ccpd.date_valid_from = policies[0].expiry_date
+        #     ccpd.date_valid_to = ccpd.date_valid_to
+        #     ccpd.policy = policies[1]
+        #     ccpd_new.save(username=self.user.username)
+        #     ccpd.save(username=self.user.username)
+        #     return [ccpd_new, ccpd]
 
     def __get_policy(self, insuree, date_valid_from, date_valid_to, product, ccpd):
         logger.info(f"__get_policy : date_valid_from : {date_valid_from}")
@@ -1129,6 +1141,7 @@ class ContractContributionPlanDetails(object):
                 policy_output.append(cur_policy)
 
         for data in missing_coverage:
+            print(f"----------------------- missing_coverage {missing_coverage}")
             logger.info(f"__get_policy : data['start'] : {data['start']}")
             logger.info(f"__get_policy : data['stop'] : {data['stop']}")
             policy_created, last_date_covered = self.create_contract_details_policies(
@@ -1138,7 +1151,10 @@ class ContractContributionPlanDetails(object):
                 policy_output += policy_created
 
         # now we create new policy
+        # @Note: Code commented temporary for CAMU Requirement
         while last_date_covered < date_valid_to:
+            print(f"----------------------- last_date_covered {last_date_covered}")
+            print(f"----------------------- date_valid_to {date_valid_to}")
             logger.info(f"__get_policy : last_date_covered : {last_date_covered}")
             logger.info(f"__get_policy : date_valid_to : {date_valid_to}")
             policy_created, last_date_covered = self.create_contract_details_policies(
@@ -1410,10 +1426,18 @@ class ContractContributionPlanDetails(object):
                             "policy_id": contract_details["policy_id"],
                         }
                     )
+                    print(f"******--------------------------------- ccpd {ccpd}")
                     logger.info(f"contract_valuation : ccpd : {ccpd}")
                     # rc - result of calculation
                     calculated_amount = 0
                     print(f"------------------------ ContractContributionPlanDetails : calculated_amount: {calculated_amount}")
+                    print("-------------------- ccpd DATA ----------------------")
+                    print(ccpd)
+                    print("-------------------- ccpd DATA ----------------------")
+                    
+                    print("-------------------- self.user DATA ----------------------")
+                    print(self.user)
+                    print("-------------------- self.user DATA ----------------------")
                     rc = run_calculation_rules(ccpd, "create", self.user)
                     print(f"------------------------ ContractContributionPlanDetails : rc: {rc}")
                     logger.info(f"contract_valuation : rc : {rc}")
@@ -1433,6 +1457,7 @@ class ContractContributionPlanDetails(object):
                     ccpd_record = model_to_dict(ccpd)
                     logger.info(f"contract_valuation : ccpd_record : {ccpd_record}")
                     ccpd_record["calculated_amount"] = calculated_amount
+                    print(f"***------------------ contract_details {contract_details}")
                     if contract_contribution_plan_details["save"]:
                         ccpd_list, total_amount, ccpd_record = (
                             self.__append_contract_cpd_to_list(
@@ -1521,7 +1546,11 @@ class ContractContributionPlanDetails(object):
         #  length = cp.get_contribution_length(grace_period)
         length = cp.get_contribution_length()
         ccpd.date_valid_from = date_valid_from
-        ccpd.date_valid_to = date_valid_from + datetimedelta(months=length)
+        
+        # get the last day of the month data_valid_from and transform it to date_valid_to eg if data_valid_from is 01 feb 2025 then date_valid_to should be 28 feb 2025
+        last_day = calendar.monthrange(date_valid_from.year, date_valid_from.month)[1]
+        ccpd.date_valid_to = date_valid_from.replace(day=last_day)
+        # ccpd.date_valid_to = date_valid_from + datetimedelta(months=length)
         # TODO: calculate the number of CCPD to create in order to cover the contract length
         ccpd_results = self.create_ccpd(ccpd, insuree_id)
         ccpd_record = model_to_dict(ccpd)
