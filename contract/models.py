@@ -242,6 +242,7 @@ class InsureeWaitingPeriod(core_models.UUIDModel):
     policy_holder_contribution_plan = models.ForeignKey(PolicyHolderContributionPlan, models.DO_NOTHING)
     insuree = models.ForeignKey(Insuree, models.DO_NOTHING)
     waiting_period = models.PositiveIntegerField()
+    contribution_periodicity = models.PositiveIntegerField()
 
     class Meta:
         managed = True

@@ -1398,7 +1398,7 @@ class ContractContributionPlanDetails(object):
 
     def _get_policy_status(self, insuree, policy_holder):
         from policyholder.models import PolicyHolderContributionPlan
-        from models import InsureeWaitingPeriod
+        from contract.models import InsureeWaitingPeriod
 
         logger.info("get_policy_status : --------- Start ---------")
 
