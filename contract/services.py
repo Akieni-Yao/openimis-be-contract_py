@@ -60,9 +60,13 @@ def generate_contract_code(policy_holder, last_contract):
                 last_increment = int(last_contract.code[-6:])
                 increment = last_increment + 1
         logger.debug(f"Last contract code format: {last_contract.code}")
-        
-    # Format the new contract code
-    new_code = f"D{department_code}{month}{year}{increment:06d}"
+
+    # Format the new contract code and check if it exists
+    while True:
+        new_code = f"D{department_code}{month}{year}{increment:06d}"
+        if not ContractModel.objects.filter(code=new_code).exists():
+            break
+        increment += 1
     logger.debug(f"====> Generated new contract code: {new_code}")  
     #with connection.cursor() as cursor:
     #    cursor.execute("SELECT nextval('public.contract_code_seq')")
