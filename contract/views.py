@@ -11,7 +11,12 @@ from policyholder.models import PolicyHolderInsuree
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from contract.models import ContractDetails, Contract
-from policyholder.models import PolicyHolderInsuree, PolicyHolder, PolicyHolderContributionPlan
+from policyholder.models import (
+    PolicyHolderInsuree,
+    PolicyHolder,
+    PolicyHolderContributionPlan,
+)
+from insuree.models import Insuree
 from contract.utils import create_new_insuree_and_add_contract_details
 
 
@@ -78,7 +83,7 @@ def generate_multi_contract_excel_data(contract_detail):
                 else ""
             ),
         }
-        print(contract_data)
+        logger.info(contract_data)
 
         return contract_data
     except Exception as e:
@@ -160,6 +165,7 @@ def multi_contract(request, contract_id):
 #             return response
 #         except Exception as e:
 #             return None
+
 
 def get_contract_custom_field_data(detail):
     cpb = detail.contribution_plan_bundle
@@ -253,6 +259,10 @@ def send_contract(contract_id):
 
 @api_view(["POST"])
 def update_contract_salaries(request, contract_id):
+    from policyholder.gql.gql_mutations.create_mutations import (
+        get_and_set_waiting_period_for_insuree,
+    )
+
     file = request.FILES["file"]
     user_id = request.user.id_for_audit
     core_username = request.user.username
@@ -260,19 +270,23 @@ def update_contract_salaries(request, contract_id):
     total_salaries_updated = 0
     total_validation_errors = 0
     contract = Contract.objects.filter(id=contract_id).first()
-    policy_holder = PolicyHolder.objects.filter(code=contract.policy_holder.code).first()
+    policy_holder = PolicyHolder.objects.filter(
+        code=contract.policy_holder.code
+    ).first()
     ph_cpb = None
     cpb = None
     enrolment_type = None
 
-    print("======================================= update contract salaries")
+    logger.info("======================================= update contract salaries")
 
     if not policy_holder:
-        return Response({"success": False, "message": "Policy holder not found"}, status=400)
+        return Response(
+            {"success": False, "message": "Policy holder not found"}, status=400
+        )
 
     ph_cpb = PolicyHolderContributionPlan.objects.filter(
-                policy_holder=policy_holder, is_deleted=False
-            ).first()
+        policy_holder=policy_holder, is_deleted=False
+    ).first()
 
     if ph_cpb:
         cpb = ph_cpb.contribution_plan_bundle
@@ -319,17 +333,29 @@ def update_contract_salaries(request, contract_id):
 
                 # Extract the chf_id and new salary
                 chf_id = line.get("Numéro CAMU temporaire")
-                
-                print("======================================= chf_id: %s", chf_id)
-                
+
+                logger.info(
+                    "======================================= chf_id: %s", chf_id
+                )
 
                 if not chf_id or pd.isna(chf_id):
                     insuree_name = line.get("Assuré")
                     if not insuree_name or pd.isna(insuree_name):
                         continue
-                    print("======================================= insuree_name: %s", insuree_name)
+                    logger.info(
+                        "======================================= insuree_name: %s",
+                        insuree_name,
+                    )
 
-                    chf_id = create_new_insuree_and_add_contract_details(insuree_name, policy_holder, cpb, contract, user_id, request, enrolment_type)
+                    chf_id = create_new_insuree_and_add_contract_details(
+                        insuree_name,
+                        policy_holder,
+                        cpb,
+                        contract,
+                        user_id,
+                        request,
+                        enrolment_type,
+                    )
                     if not chf_id:
                         continue
 
@@ -337,14 +363,16 @@ def update_contract_salaries(request, contract_id):
                         contract_id=contract_id, is_deleted=False
                     )
                     logger.debug(
-                        "Fetched %s existing contract details", len(exist_contract_details)
+                        "Fetched %s existing contract details",
+                        len(exist_contract_details),
                     )
 
                     # Index existing contract details by chf_id for quick lookup
                     contract_details_by_chf_id = {
-                        detail.insuree.chf_id: detail for detail in exist_contract_details
+                        detail.insuree.chf_id: detail
+                        for detail in exist_contract_details
                     }
-                    
+
                 gross_salary = line.get("Gross Salary")
                 if not gross_salary or pd.isna(gross_salary):
                     continue
@@ -357,8 +385,19 @@ def update_contract_salaries(request, contract_id):
 
                 if chf_id in contract_details_by_chf_id:
                     contract_detail = contract_details_by_chf_id[chf_id]
-                    print(f"---------------------------contract_detail: {contract_detail.json_ext}")
-                    
+                    logger.info(
+                        f"---------------------------contract_detail: {contract_detail.json_ext}"
+                    )
+
+                    logger.info("Setting waiting period for insuree")
+
+                    insuree = Insuree.objects.filter(chf_id=chf_id).first()
+
+                    if insuree:
+                        get_and_set_waiting_period_for_insuree(
+                            insuree.id, policy_holder.id
+                        )
+
                     current_salary = (
                         int(
                             contract_detail.json_ext.get("calculation_rule", {}).get(
@@ -368,32 +407,37 @@ def update_contract_salaries(request, contract_id):
                         if contract_detail.json_ext
                         else 0
                     )
-                    
-                    print(f"---------------------------current_salary: {current_salary}")
-                    print(f"---------------------------new_gross_salary: {new_gross_salary}")
-                    
+
+                    logger.info(
+                        f"---------------------------current_salary: {current_salary}"
+                    )
+                    logger.info(
+                        f"---------------------------new_gross_salary: {new_gross_salary}"
+                    )
+
                     logger.debug(
                         "Current salary for chf_id %s is %s", chf_id, current_salary
                     )
-                    
+
                     if current_salary == 0:
                         # json_ext: {'calculation_rule': {'rate': 0, 'income': '69000'}}
                         contract_detail.json_ext = {
-                            "calculation_rule": {
-                                "rate": 0,
-                                "income": new_gross_salary
-                            }
+                            "calculation_rule": {"rate": 0, "income": new_gross_salary}
                         }
                         # contract_detail.save(username=core_username)
 
                     # Check if the salary has changed
                     if current_salary != new_gross_salary:
                         logger.debug("Updating salary for chf_id %s", chf_id)
-                        print(f"---------------------------contract_detail.json_ext: {contract_detail.json_ext}")
+                        logger.info(
+                            f"---------------------------contract_detail.json_ext: {contract_detail.json_ext}"
+                        )
                         json_data = update_salary(
                             contract_detail.json_ext, new_gross_salary
                         )
-                        print(f"---------------------------json_data: {json_data}")
+                        logger.info(
+                            f"---------------------------json_data: {json_data}"
+                        )
                         if json_data is None:
                             raise ValueError(
                                 f"Failed to update salary for chf_id {chf_id}"
