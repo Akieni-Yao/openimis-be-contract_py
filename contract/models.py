@@ -7,8 +7,9 @@ from core import models as core_models, fields
 from graphql import ResolveInfo
 from policy.models import Policy
 from contribution.models import Premium
-from policyholder.models import PolicyHolder
+from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 from insuree.models import Insuree
+
 
 
 class ContractManager(models.Manager):
@@ -236,3 +237,13 @@ class ContractDetailsMutation(core_models.UUIDModel, core_models.ObjectMutation)
     class Meta:
         managed = True
         db_table = "contract_contractDetailsMutation"
+
+class InsureeWaitingPeriod(core_models.UUIDModel):
+    policy_holder_contribution_plan = models.ForeignKey(PolicyHolderContributionPlan, models.DO_NOTHING)
+    insuree = models.ForeignKey(Insuree, models.DO_NOTHING)
+    waiting_period = models.PositiveIntegerField()
+
+    class Meta:
+        managed = True
+        unique_together = ('policy_holder_contribution_plan', 'insuree')
+        db_table = 'tblInsureeWaitingPeriod'
