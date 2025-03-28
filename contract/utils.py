@@ -496,7 +496,7 @@ def get_due_payment_date(contract):
     if payment:
         product_config = get_payment_product_config(payment)
         payment_end_date = product_config.get("paymentEndDate")
-        contract_date_valid_to = contract.dateValidTo
+        contract_date_valid_to = contract.date_valid_from
         # now = datetime.now().date()
         payment_due_date = get_next_month_limit_date(
             payment_end_date, contract_date_valid_to)
