@@ -202,7 +202,9 @@ class Contract(object):
         return _output_result_success(dict_representation=dict_representation)
 
     def evaluate_contract_valuation(self, contract_details_result, save=False):
-        print(f"---------------------------evaluate_contract_valuation {contract_details_result}")
+        print(
+            f"---------------------------evaluate_contract_valuation {contract_details_result}"
+        )
         ccpd = ContractContributionPlanDetails(user=self.user)
         print(
             f"---------------------------contract_details_result: {contract_details_result}"
@@ -1068,7 +1070,9 @@ class ContractContributionPlanDetails(object):
         """ "
         method to create contract contribution plan details
         """
-        print(f"---------------------------ContractContributionPlanDetails ccpd: {ccpd}")
+        print(
+            f"---------------------------ContractContributionPlanDetails ccpd: {ccpd}"
+        )
         # get the relevant policy from the related product of contribution plan
         # policy objects get all related to this product
         insuree = Insuree.objects.filter(id=insuree_id).first()
@@ -1082,8 +1086,10 @@ class ContractContributionPlanDetails(object):
         return self.__create_contribution_from_policy(ccpd, policies)
 
     def __create_contribution_from_policy(self, ccpd, policies):
-        print(f"---------------------------ContractContributionPlanDetails policies: {policies}")
-        
+        print(
+            f"---------------------------ContractContributionPlanDetails policies: {policies}"
+        )
+
         if policies:
             ccpd.policy = policies[0]
             ccpd.save(username=self.user.username)
@@ -1108,7 +1114,9 @@ class ContractContributionPlanDetails(object):
     def __get_policy(self, insuree, date_valid_from, date_valid_to, product, ccpd):
         logger.info(f"__get_policy : date_valid_from : {date_valid_from}")
         logger.info(f"__get_policy : date_valid_to : {date_valid_to}")
-        print(f"------------------------ ContractContributionPlanDetails : get_policy : date_valid_from : {date_valid_from}")
+        print(
+            f"------------------------ ContractContributionPlanDetails : get_policy : date_valid_from : {date_valid_from}"
+        )
         from core import datetime
 
         policy_output = []
@@ -1171,7 +1179,9 @@ class ContractContributionPlanDetails(object):
         # TODO Policy with status - new open=32 in policy-be_py module
         logger.info("create_contract_details_policies : --------- Start ---------")
         policy_output = []
-        print(f"------------------------ ContractContributionPlanDetails : create_contract_details_policies : last_date_covered : {last_date_covered}")
+        print(
+            f"------------------------ ContractContributionPlanDetails : create_contract_details_policies : last_date_covered : {last_date_covered}"
+        )
 
         # Get the contract
         policy_holder = ccpd.contract_details.contract.policy_holder
@@ -1363,11 +1373,13 @@ class ContractContributionPlanDetails(object):
             print("AU : last_date_covered : ", last_date_covered)
             print("expiry_date : ", expiry_date)
 
+            policy_status = self._get_policy_status(insuree, policy_holder)
+
             cur_policy = Policy.objects.create(
                 **{
                     "family": insuree.family,
                     "product": product,
-                    "status": Policy.STATUS_READY,
+                    "status": policy_status,
                     "stage": Policy.STAGE_NEW,
                     "enroll_date": last_date_covered,
                     "start_date": last_date_covered,
@@ -1384,10 +1396,68 @@ class ContractContributionPlanDetails(object):
         logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
 
+    def _get_policy_status(self, insuree, policy_holder):
+        from policyholder.models import PolicyHolderContributionPlan
+        from models import InsureeWaitingPeriod
+
+        logger.info("get_policy_status : --------- Start ---------")
+
+        try:
+            logger.info(f"get_policy_status : policy_holder : {policy_holder}")
+            policy_holder_contribution_plan = (
+                PolicyHolderContributionPlan.objects.filter(
+                    policy_holder_id=policy_holder.id, is_deleted=False
+                ).first()
+            )
+
+            logger.info(
+                f"get_policy_status : policy_holder_contribution_plan : {policy_holder_contribution_plan}"
+            )
+
+            insuree_waiting_period = InsureeWaitingPeriod.objects.filter(
+                insuree=insuree,
+                policy_holder_contribution_plan=policy_holder_contribution_plan,
+            ).first()
+
+            logger.info(
+                f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+            )
+
+            if not insuree_waiting_period:
+                logger.info(
+                    f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+                )
+                return Policy.STATUS_IDLE
+
+            waiting_period = insuree_waiting_period.waiting_period
+
+            if waiting_period > 0:
+                waiting_period = waiting_period - 1
+
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+
+            InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
+                waiting_period=waiting_period
+            )
+
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+
+            if waiting_period == 0:
+                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+                return Policy.STATUS_READY
+            else:
+                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+                return Policy.STATUS_IDLE
+        except Exception as e:
+            logger.error(f"Error getting policy status: {e}")
+            return Policy.STATUS_IDLE
+
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
         try:
-            print(f"------------------------ ContractContributionPlanDetails : contract_valuation : contract_contribution_plan_details : {contract_contribution_plan_details}")
+            print(
+                f"------------------------ ContractContributionPlanDetails : contract_valuation : contract_contribution_plan_details : {contract_contribution_plan_details}"
+            )
             logger.info("contract_valuation : --------- Start ---------")
             dict_representation = {}
             ccpd_list = []
@@ -1430,16 +1500,20 @@ class ContractContributionPlanDetails(object):
                     logger.info(f"contract_valuation : ccpd : {ccpd}")
                     # rc - result of calculation
                     calculated_amount = 0
-                    print(f"------------------------ ContractContributionPlanDetails : calculated_amount: {calculated_amount}")
+                    print(
+                        f"------------------------ ContractContributionPlanDetails : calculated_amount: {calculated_amount}"
+                    )
                     print("-------------------- ccpd DATA ----------------------")
                     print(ccpd)
                     print("-------------------- ccpd DATA ----------------------")
-                    
+
                     print("-------------------- self.user DATA ----------------------")
                     print(self.user)
                     print("-------------------- self.user DATA ----------------------")
                     rc = run_calculation_rules(ccpd, "create", self.user)
-                    print(f"------------------------ ContractContributionPlanDetails : rc: {rc}")
+                    print(
+                        f"------------------------ ContractContributionPlanDetails : rc: {rc}"
+                    )
                     logger.info(f"contract_valuation : rc : {rc}")
                     if rc:
                         calculated_amount = (
@@ -1532,12 +1606,24 @@ class ContractContributionPlanDetails(object):
         cp - contribution plan
         return ccpd list and total amount
         """
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : ccpd : {ccpd}")
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : cp : {cp}")
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : date_valid_from : {date_valid_from}")
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : insuree_id : {insuree_id}")
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : total_amount : {total_amount}")
-        print(f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : calculated_amount : {calculated_amount}")
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : ccpd : {ccpd}"
+        )
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : cp : {cp}"
+        )
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : date_valid_from : {date_valid_from}"
+        )
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : insuree_id : {insuree_id}"
+        )
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : total_amount : {total_amount}"
+        )
+        print(
+            f"------------------------ ContractContributionPlanDetails : __append_contract_cpd_to_list : calculated_amount : {calculated_amount}"
+        )
         logger.info("__append_contract_cpd_to_list : --------- Start ---------")
         from core import datetime, datetimedelta
 
@@ -1546,7 +1632,7 @@ class ContractContributionPlanDetails(object):
         #  length = cp.get_contribution_length(grace_period)
         length = cp.get_contribution_length()
         ccpd.date_valid_from = date_valid_from
-        
+
         # get the last day of the month data_valid_from and transform it to date_valid_to eg if data_valid_from is 01 feb 2025 then date_valid_to should be 28 feb 2025
         last_day = calendar.monthrange(date_valid_from.year, date_valid_from.month)[1]
         ccpd.date_valid_to = date_valid_from.replace(day=last_day)
@@ -1622,7 +1708,9 @@ class ContractContributionPlanDetails(object):
     @check_authentication
     def create_contribution(self, contract_contribution_plan_details):
         try:
-            print(f"------------------------ ContractContributionPlanDetails : create_contribution : contract_contribution_plan_details : {contract_contribution_plan_details}")
+            print(
+                f"------------------------ ContractContributionPlanDetails : create_contribution : contract_contribution_plan_details : {contract_contribution_plan_details}"
+            )
             dict_representation = {}
             contribution_list = []
             from core import datetime
