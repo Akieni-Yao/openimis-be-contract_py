@@ -41,21 +41,19 @@ from .config import get_message_counter_contract
 
 logger = logging.getLogger("openimis." + __file__)
 
-def generate_contract_code(policy_holder, last_contract):
+def generate_contract_code(policy_holder, last_contract, date):
     # Get department code from policy holder location (first 2 letters)
     department_code = policy_holder.locations.name[:2].upper()
     
     # Get month and year from current date
-    current_date = datetime.now()
-    month = current_date.strftime("%m")
-    year = current_date.strftime("%Y")
-    
+    month = date.strftime("%m")
+    year = date.strftime("%Y")
     # Get increment by checking last contract from same month/year that starts with 'D'
     increment = 1
     if last_contract:
         # Only process if last contract matches new format (starts with 'D')
         if last_contract.code.startswith('D'):
-            if last_contract.date_created.month == current_date.month and last_contract.date_created.year == current_date.year:
+            if last_contract.date_created.month == date.month and last_contract.date_created.year == date.year:
                 # Extract increment from last code and add 1
                 last_increment = int(last_contract.code[-6:])
                 increment = last_increment + 1
@@ -160,7 +158,7 @@ class Contract(object):
                         "contract creation failed, Sanction is not approved!"
                     )
 
-            incoming_code = generate_contract_code(policy_holder, last_contract)  # Generate a new unique code
+            incoming_code = generate_contract_code(policy_holder, last_contract, contract.get("date_valid_from"))  # Generate a new unique code
             contract["code"] = incoming_code  # Set the generated code into the contract
             # if check_unique_code(incoming_code):
             #     raise ValidationError(("Contract code %s already exists" % incoming_code))
