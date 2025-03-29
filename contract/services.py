@@ -1374,6 +1374,8 @@ class ContractContributionPlanDetails(object):
             print("expiry_date : ", expiry_date)
 
             policy_status = self._get_policy_status(insuree, policy_holder)
+            
+            logger.info(f"=====> create_contract_details_policies : policy_status : {policy_status}")
 
             cur_policy = Policy.objects.create(
                 **{
@@ -1427,14 +1429,17 @@ class ContractContributionPlanDetails(object):
                 logger.info(
                     f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
                 )
-                return Policy.STATUS_IDLE
-
+                return Policy.STATUS_LOCKED
+            
+            # policy_status = Policy.STATUS_LOCKED
+            
             waiting_period = insuree_waiting_period.waiting_period
+            # periodicity = insuree_waiting_period.contribution_periodicity
 
             if waiting_period > 0:
                 waiting_period = waiting_period - 1
 
-            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            logger.info(f"**************get_policy_status : waiting_period : {waiting_period}")
 
             InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
                 waiting_period=waiting_period
@@ -1447,10 +1452,10 @@ class ContractContributionPlanDetails(object):
                 return Policy.STATUS_READY
             else:
                 logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-                return Policy.STATUS_IDLE
+                return Policy.STATUS_LOCKED
         except Exception as e:
             logger.error(f"Error getting policy status: {e}")
-            return Policy.STATUS_IDLE
+            return Policy.STATUS_LOCKED
 
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
