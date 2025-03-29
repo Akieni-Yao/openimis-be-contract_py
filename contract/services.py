@@ -41,13 +41,39 @@ from .config import get_message_counter_contract
 
 logger = logging.getLogger("openimis." + __file__)
 
+def generate_contract_code(policy_holder, date):
+    # Get department code from policy holder location (first 2 letters)
+    department_code = policy_holder.locations.name[:2].upper()
+    
+    # Get month and year from current date
+    month = date.strftime("%m")
+    year = date.strftime("%Y")
+    # Get increment by checking last contract from same month/year that starts with 'D'
+    # Find contracts from same month/year and get highest increment
+    contracts_this_month = ContractModel.objects.filter(
+        code__startswith='D',
+        date_created__month=date.month,
+        date_created__year=date.year
+    ).order_by('-code')
 
-def generate_contract_code():
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT nextval('public.contract_code_seq')")
-        sequence_value = cursor.fetchone()[0]
+    increment = 1
+    if contracts_this_month.exists():
+        # Get highest increment from existing contracts this month
+        highest_contract = contracts_this_month.first()
+        increment = int(highest_contract.code[-6:]) + 1
 
-    new_code = f"CONT{sequence_value:09}"
+    # Format the new contract code and check if it exists
+    while True:
+        new_code = f"D{department_code}{month}{year}{increment:06d}"
+        if not ContractModel.objects.filter(code=new_code).exists():
+            break
+        increment += 1
+    logger.debug(f"====> Generated new contract code: {new_code}")  
+    #with connection.cursor() as cursor:
+    #    cursor.execute("SELECT nextval('public.contract_code_seq')")
+    #    sequence_value = cursor.fetchone()[0]
+
+    #new_code = f"CONT{sequence_value:09}"
     return new_code
 
 
@@ -85,6 +111,7 @@ class Contract(object):
                 logger.debug(
                     f"====  Contract : create : policy_holder : {contract['policy_holder_id']}"
                 )
+
                 policy_holder = PolicyHolder.objects.filter(
                     id=contract["policy_holder_id"]
                 ).first()
@@ -132,7 +159,7 @@ class Contract(object):
                         "contract creation failed, Sanction is not approved!"
                     )
 
-            incoming_code = generate_contract_code()  # Generate a new unique code
+            incoming_code = generate_contract_code(policy_holder, contract.get("date_valid_from"))  # Generate a new unique code
             contract["code"] = incoming_code  # Set the generated code into the contract
             # if check_unique_code(incoming_code):
             #     raise ValidationError(("Contract code %s already exists" % incoming_code))
