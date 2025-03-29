@@ -235,7 +235,10 @@ class Contract(object):
         print(
             f"---------------------------evaluate_contract_valuation {contract_details_result}"
         )
-        ccpd = ContractContributionPlanDetails(user=self.user)
+
+        ccpd = ContractContributionPlanDetails(
+            user=self.user, contract=contract_details_result
+        )
         print(
             f"---------------------------contract_details_result: {contract_details_result}"
         )
@@ -467,6 +470,7 @@ class Contract(object):
                     "You cannot approve this contract! The status of contract is not Negotiable!"
                 )
             contract_details_list = {}
+            contract_details_list["contract"] = contract_to_approve
             contract_details_list["data"] = self.__gather_policy_holder_insuree(
                 list(
                     ContractDetailsModel.objects.filter(
@@ -1098,7 +1102,6 @@ class ContractContributionPlanDetails(object):
         self.contract = contract
         print(f"---------------------------user: {self.user}")
         print(f"---------------------------contract: {self.contract}")
-        print(f"---------------------------contract.id: {self.contract.id}")
 
     @check_authentication
     def create_ccpd(self, ccpd, insuree_id):
@@ -1432,8 +1435,10 @@ class ContractContributionPlanDetails(object):
             last_date_covered = expiry_date
             policy_output.append(cur_policy)
 
+            logger.info(f"=======++++++++++++ self.contract {self.contract}")
+
             ContractPolicy.objects.create(
-                contract=self.contract,
+                contract=self.contract['contract'],
                 policy=cur_policy,
                 insuree=insuree,
                 policy_holder=policy_holder,
