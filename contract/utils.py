@@ -250,7 +250,7 @@ def generate_report_for_contract_receipt(contract_id, info):
                     "data": {
                         "payment_id": payment.payment_code,
                         "period": get_period_date(contract.date_valid_from),
-                        "current_date": str(now.strftime("%d-%m-%Y à %H:%M:%S")),
+                        "current_date": str(now.strftime("%d/%m/%Y à %H:%M:%S")),
                         "subscriber_name": (
                             policy_holder.trade_name
                             if policy_holder.trade_name is not None
@@ -261,17 +261,17 @@ def generate_report_for_contract_receipt(contract_id, info):
                         ),
                         "subscriber_adresse": f"{location['adresse']}, {location['quartier']}, {location['arrondissement']}, {location['ville']}, {location['department']}",
                         "id": contract.code,
-                        "created_at": str(contract.date_approved.strftime("%d-%m-%Y")),
+                        "created_at": str(contract.date_approved.strftime("%d/%m/%Y")),
                         "date_valid_to": (
-                            str(contract.date_payment_due.strftime("%d-%m-%Y"))
+                            str(contract.date_payment_due.strftime("%d/%m/%Y"))
                             if contract.date_payment_due
                             else ""
                         ),
                         "total_insuree": total_insuree,
-                        "total_salary_brut": total_salary_brut,
-                        "part_salariale": part_salariale,
-                        "part_patronale": part_patronale,
-                        "total_due_pay": total_due_pay,
+                        "total_salary_brut": format_number(total_salary_brut),
+                        "part_salariale": format_number(part_salariale),
+                        "part_patronale": format_number(part_patronale),
+                        "total_due_pay": format_number(total_due_pay),
                         "user_location": user_location,
                         "user_name": user_name,
                     }
@@ -507,3 +507,29 @@ def get_due_payment_date(contract):
     logger.info(f"contract_date_valid_to  : {contract_date_valid_to}")
     logger.info("************************************************************")
     return payment_due_date
+
+
+def format_number(number):
+    """
+    Format a number by removing decimal places and using spaces as thousand
+    separators.
+    Examples:
+        700,000.00 -> 700 000
+        15890 -> 15 890
+        31,850.00 -> 31 850
+        47,740.00 -> 47 740
+    """
+    try:
+        # Convert to string first to handle both string and numeric inputs
+        if isinstance(number, (int, float)):
+            num_str = str(number)
+        else:
+            num_str = str(number)
+        # Remove commas and convert to float
+        num = float(num_str.replace(',', ''))
+        # Convert to integer to remove decimal places
+        num = int(num)
+        # Format with spaces as thousand separators
+        return '{:,}'.format(num).replace(',', ' ')
+    except (ValueError, TypeError):
+        return str(number)
