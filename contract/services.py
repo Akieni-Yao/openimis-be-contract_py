@@ -1103,6 +1103,7 @@ class ContractContributionPlanDetails(object):
         # get the relevant policy from the related product of contribution plan
         # policy objects get all related to this product
         insuree = Insuree.objects.filter(id=insuree_id).first()
+        # @TODO : remove policies
         policies = self.__get_policy(
             insuree=insuree,
             date_valid_from=ccpd.date_valid_from,
@@ -1400,15 +1401,16 @@ class ContractContributionPlanDetails(object):
             print("AU : last_date_covered : ", last_date_covered)
             print("expiry_date : ", expiry_date)
 
-            policy_status = self._get_policy_status(insuree, policy_holder)
+            # policy_status = self._get_policy_status(insuree, policy_holder)
             
-            logger.info(f"=====> create_contract_details_policies : policy_status : {policy_status}")
+            # logger.info(f"=====> create_contract_details_policies : policy_status : {policy_status}")
 
             cur_policy = Policy.objects.create(
                 **{
                     "family": insuree.family,
+                    "is_valid": False,
                     "product": product,
-                    "status": policy_status,
+                    "status": Policy.STATUS_LOCKED,
                     "stage": Policy.STAGE_NEW,
                     "enroll_date": last_date_covered,
                     "start_date": last_date_covered,
