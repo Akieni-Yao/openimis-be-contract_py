@@ -7,7 +7,7 @@ import calendar
 
 from calculation.services import run_calculation_rules
 from contract.apps import ContractConfig
-from contract.models import Contract as ContractModel
+from contract.models import Contract as ContractModel, ContractPolicy
 from contract.models import (
     ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
 )
@@ -494,7 +494,9 @@ class Contract(object):
                 contract_to_approve.parent = prev_contract[0]
                 logger.info(f"contract_to_approve {contract_to_approve}")
             # send signal - approve contract
-            ccpd_service = ContractContributionPlanDetails(user=self.user)
+            ccpd_service = ContractContributionPlanDetails(
+                user=self.user, contract=contract_to_approve
+            )
             payment_service = PaymentService(user=self.user)
             logger.info("Signal contract approve")
             signal_contract_approve.send(
@@ -1091,9 +1093,12 @@ class ContractDetails(object):
 
 
 class ContractContributionPlanDetails(object):
-    def __init__(self, user):
+    def __init__(self, user, contract=None):
         self.user = user
+        self.contract = contract
         print(f"---------------------------user: {self.user}")
+        print(f"---------------------------contract: {self.contract}")
+        print(f"---------------------------contract.id: {self.contract.id}")
 
     @check_authentication
     def create_ccpd(self, ccpd, insuree_id):
@@ -1427,69 +1432,15 @@ class ContractContributionPlanDetails(object):
             last_date_covered = expiry_date
             policy_output.append(cur_policy)
 
+            ContractPolicy.objects.create(
+                contract=self.contract,
+                policy=cur_policy,
+                insuree=insuree,
+                policy_holder=policy_holder,
+            )
+
         logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
-
-    def _get_policy_status(self, insuree, policy_holder):
-        from policyholder.models import PolicyHolderContributionPlan
-        from contract.models import InsureeWaitingPeriod
-
-        logger.info("get_policy_status : --------- Start ---------")
-
-        try:
-            logger.info(f"get_policy_status : policy_holder : {policy_holder}")
-            policy_holder_contribution_plan = (
-                PolicyHolderContributionPlan.objects.filter(
-                    policy_holder_id=policy_holder.id, is_deleted=False
-                ).first()
-            )
-
-            logger.info(
-                f"get_policy_status : policy_holder_contribution_plan : {policy_holder_contribution_plan}"
-            )
-
-            insuree_waiting_period = InsureeWaitingPeriod.objects.filter(
-                insuree=insuree,
-                policy_holder_contribution_plan=policy_holder_contribution_plan,
-            ).first()
-
-            logger.info(
-                f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
-            )
-
-            if not insuree_waiting_period:
-                logger.info(
-                    f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
-                )
-                return Policy.STATUS_LOCKED
-
-            # policy_status = Policy.STATUS_LOCKED
-
-            waiting_period = insuree_waiting_period.waiting_period
-            # periodicity = insuree_waiting_period.contribution_periodicity
-
-            if waiting_period > 0:
-                waiting_period = waiting_period - 1
-
-            logger.info(
-                f"**************get_policy_status : waiting_period : {waiting_period}"
-            )
-
-            InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
-                waiting_period=waiting_period
-            )
-
-            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-
-            if waiting_period == 0:
-                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-                return Policy.STATUS_READY
-            else:
-                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-                return Policy.STATUS_LOCKED
-        except Exception as e:
-            logger.error(f"Error getting policy status: {e}")
-            return Policy.STATUS_LOCKED
 
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
@@ -1787,6 +1738,67 @@ class ContractContributionPlanDetails(object):
                 method="createContribution",
                 exception=exc,
             )
+
+
+# This function is used in payment module
+def get_policy_status(insuree, policy_holder):
+    from policyholder.models import PolicyHolderContributionPlan
+    from contract.models import InsureeWaitingPeriod
+
+    logger.info("get_policy_status : --------- Start ---------")
+
+    try:
+        logger.info(f"get_policy_status : policy_holder : {policy_holder}")
+        policy_holder_contribution_plan = PolicyHolderContributionPlan.objects.filter(
+            policy_holder_id=policy_holder.id, is_deleted=False
+        ).first()
+
+        logger.info(
+            f"get_policy_status : policy_holder_contribution_plan : {policy_holder_contribution_plan}"
+        )
+
+        insuree_waiting_period = InsureeWaitingPeriod.objects.filter(
+            insuree=insuree,
+            policy_holder_contribution_plan=policy_holder_contribution_plan,
+        ).first()
+
+        logger.info(
+            f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+        )
+
+        if not insuree_waiting_period:
+            logger.info(
+                f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+            )
+            return Policy.STATUS_LOCKED
+
+        # policy_status = Policy.STATUS_LOCKED
+
+        waiting_period = insuree_waiting_period.waiting_period
+        # periodicity = insuree_waiting_period.contribution_periodicity
+
+        if waiting_period > 0:
+            waiting_period = waiting_period - 1
+
+        logger.info(
+            f"**************get_policy_status : waiting_period : {waiting_period}"
+        )
+
+        InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
+            waiting_period=waiting_period
+        )
+
+        logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+
+        if waiting_period == 0:
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            return Policy.STATUS_READY
+        else:
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            return Policy.STATUS_LOCKED
+    except Exception as e:
+        logger.error(f"Error getting policy status: {e}")
+        return Policy.STATUS_LOCKED
 
 
 class PaymentService(object):
