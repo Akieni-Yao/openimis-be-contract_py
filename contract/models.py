@@ -248,3 +248,22 @@ class InsureeWaitingPeriod(core_models.UUIDModel):
         managed = True
         unique_together = ('policy_holder_contribution_plan', 'insuree')
         db_table = 'tblInsureeWaitingPeriod'
+        
+
+class ContractPolicy(core_models.UUIDModel):
+    contract = models.ForeignKey(Contract, models.DO_NOTHING)
+    policy = models.ForeignKey(Policy, models.DO_NOTHING)
+    insuree = models.ForeignKey(Insuree, models.DO_NOTHING)
+    policy_holder = models.ForeignKey(PolicyHolder, models.DO_NOTHING)
+    # timestamp
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        managed = True
+        db_table = 'tblContractPolicy'
+        unique_together = ('contract', 'policy')
+        
+    def __str__(self):
+        return f"{self.contract.id} - {self.policy.id}"
+    

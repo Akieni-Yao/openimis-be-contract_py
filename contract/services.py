@@ -7,7 +7,7 @@ import calendar
 
 from calculation.services import run_calculation_rules
 from contract.apps import ContractConfig
-from contract.models import Contract as ContractModel
+from contract.models import Contract as ContractModel, ContractPolicy
 from contract.models import (
     ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
 )
@@ -42,20 +42,21 @@ from .config import get_message_counter_contract
 
 logger = logging.getLogger("openimis." + __file__)
 
+
 def generate_contract_code(policy_holder, date):
     # Get department code from policy holder location (first 2 letters)
     department_code = policy_holder.locations.name[:2].upper()
-    
+
     # Get month and year from current date
     month = date.strftime("%m")
     year = date.strftime("%Y")
     # Get increment by checking last contract from same month/year that starts with 'D'
     # Find contracts from same month/year and get highest increment
     contracts_this_month = ContractModel.objects.filter(
-        code__startswith='D',
+        code__startswith="D",
         date_created__month=date.month,
-        date_created__year=date.year
-    ).order_by('-code')
+        date_created__year=date.year,
+    ).order_by("-code")
 
     increment = 1
     if contracts_this_month.exists():
@@ -69,12 +70,12 @@ def generate_contract_code(policy_holder, date):
         if not ContractModel.objects.filter(code=new_code).exists():
             break
         increment += 1
-    logger.debug(f"====> Generated new contract code: {new_code}")  
-    #with connection.cursor() as cursor:
+    logger.debug(f"====> Generated new contract code: {new_code}")
+    # with connection.cursor() as cursor:
     #    cursor.execute("SELECT nextval('public.contract_code_seq')")
     #    sequence_value = cursor.fetchone()[0]
 
-    #new_code = f"CONT{sequence_value:09}"
+    # new_code = f"CONT{sequence_value:09}"
     return new_code
 
 
@@ -160,7 +161,9 @@ class Contract(object):
                         "contract creation failed, Sanction is not approved!"
                     )
 
-            incoming_code = generate_contract_code(policy_holder, contract.get("date_valid_from"))  # Generate a new unique code
+            incoming_code = generate_contract_code(
+                policy_holder, contract.get("date_valid_from")
+            )  # Generate a new unique code
             contract["code"] = incoming_code  # Set the generated code into the contract
             # if check_unique_code(incoming_code):
             #     raise ValidationError(("Contract code %s already exists" % incoming_code))
@@ -232,7 +235,10 @@ class Contract(object):
         print(
             f"---------------------------evaluate_contract_valuation {contract_details_result}"
         )
-        ccpd = ContractContributionPlanDetails(user=self.user)
+
+        ccpd = ContractContributionPlanDetails(
+            user=self.user, contract=contract_details_result
+        )
         print(
             f"---------------------------contract_details_result: {contract_details_result}"
         )
@@ -464,6 +470,7 @@ class Contract(object):
                     "You cannot approve this contract! The status of contract is not Negotiable!"
                 )
             contract_details_list = {}
+            contract_details_list["contract"] = contract_to_approve
             contract_details_list["data"] = self.__gather_policy_holder_insuree(
                 list(
                     ContractDetailsModel.objects.filter(
@@ -491,7 +498,9 @@ class Contract(object):
                 contract_to_approve.parent = prev_contract[0]
                 logger.info(f"contract_to_approve {contract_to_approve}")
             # send signal - approve contract
-            ccpd_service = ContractContributionPlanDetails(user=self.user)
+            ccpd_service = ContractContributionPlanDetails(
+                user=self.user, contract=contract_to_approve
+            )
             payment_service = PaymentService(user=self.user)
             logger.info("Signal contract approve")
             signal_contract_approve.send(
@@ -1088,9 +1097,11 @@ class ContractDetails(object):
 
 
 class ContractContributionPlanDetails(object):
-    def __init__(self, user):
+    def __init__(self, user, contract=None):
         self.user = user
+        self.contract = contract
         print(f"---------------------------user: {self.user}")
+        print(f"---------------------------contract: {self.contract}")
 
     @check_authentication
     def create_ccpd(self, ccpd, insuree_id):
@@ -1103,6 +1114,7 @@ class ContractContributionPlanDetails(object):
         # get the relevant policy from the related product of contribution plan
         # policy objects get all related to this product
         insuree = Insuree.objects.filter(id=insuree_id).first()
+        # @TODO : remove policies
         policies = self.__get_policy(
             insuree=insuree,
             date_valid_from=ccpd.date_valid_from,
@@ -1400,15 +1412,16 @@ class ContractContributionPlanDetails(object):
             print("AU : last_date_covered : ", last_date_covered)
             print("expiry_date : ", expiry_date)
 
-            policy_status = self._get_policy_status(insuree, policy_holder)
-            
-            logger.info(f"=====> create_contract_details_policies : policy_status : {policy_status}")
+            # policy_status = self._get_policy_status(insuree, policy_holder)
+
+            # logger.info(f"=====> create_contract_details_policies : policy_status : {policy_status}")
 
             cur_policy = Policy.objects.create(
                 **{
                     "family": insuree.family,
+                    "is_valid": False,
                     "product": product,
-                    "status": policy_status,
+                    "status": Policy.STATUS_LOCKED,
                     "stage": Policy.STAGE_NEW,
                     "enroll_date": last_date_covered,
                     "start_date": last_date_covered,
@@ -1422,67 +1435,17 @@ class ContractContributionPlanDetails(object):
             last_date_covered = expiry_date
             policy_output.append(cur_policy)
 
+            logger.info(f"=======++++++++++++ self.contract {self.contract}")
+
+            ContractPolicy.objects.create(
+                contract=self.contract['contract'],
+                policy=cur_policy,
+                insuree=insuree,
+                policy_holder=policy_holder,
+            )
+
         logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
-
-    def _get_policy_status(self, insuree, policy_holder):
-        from policyholder.models import PolicyHolderContributionPlan
-        from contract.models import InsureeWaitingPeriod
-
-        logger.info("get_policy_status : --------- Start ---------")
-
-        try:
-            logger.info(f"get_policy_status : policy_holder : {policy_holder}")
-            policy_holder_contribution_plan = (
-                PolicyHolderContributionPlan.objects.filter(
-                    policy_holder_id=policy_holder.id, is_deleted=False
-                ).first()
-            )
-
-            logger.info(
-                f"get_policy_status : policy_holder_contribution_plan : {policy_holder_contribution_plan}"
-            )
-
-            insuree_waiting_period = InsureeWaitingPeriod.objects.filter(
-                insuree=insuree,
-                policy_holder_contribution_plan=policy_holder_contribution_plan,
-            ).first()
-
-            logger.info(
-                f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
-            )
-
-            if not insuree_waiting_period:
-                logger.info(
-                    f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
-                )
-                return Policy.STATUS_LOCKED
-            
-            # policy_status = Policy.STATUS_LOCKED
-            
-            waiting_period = insuree_waiting_period.waiting_period
-            # periodicity = insuree_waiting_period.contribution_periodicity
-
-            if waiting_period > 0:
-                waiting_period = waiting_period - 1
-
-            logger.info(f"**************get_policy_status : waiting_period : {waiting_period}")
-
-            InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
-                waiting_period=waiting_period
-            )
-
-            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-
-            if waiting_period == 0:
-                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-                return Policy.STATUS_READY
-            else:
-                logger.info(f"get_policy_status : waiting_period : {waiting_period}")
-                return Policy.STATUS_LOCKED
-        except Exception as e:
-            logger.error(f"Error getting policy status: {e}")
-            return Policy.STATUS_LOCKED
 
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
@@ -1780,6 +1743,67 @@ class ContractContributionPlanDetails(object):
                 method="createContribution",
                 exception=exc,
             )
+
+
+# This function is used in payment module
+def get_policy_status(insuree, policy_holder):
+    from policyholder.models import PolicyHolderContributionPlan
+    from contract.models import InsureeWaitingPeriod
+
+    logger.info("get_policy_status : --------- Start ---------")
+
+    try:
+        logger.info(f"get_policy_status : policy_holder : {policy_holder}")
+        policy_holder_contribution_plan = PolicyHolderContributionPlan.objects.filter(
+            policy_holder_id=policy_holder.id, is_deleted=False
+        ).first()
+
+        logger.info(
+            f"get_policy_status : policy_holder_contribution_plan : {policy_holder_contribution_plan}"
+        )
+
+        insuree_waiting_period = InsureeWaitingPeriod.objects.filter(
+            insuree=insuree,
+            policy_holder_contribution_plan=policy_holder_contribution_plan,
+        ).first()
+
+        logger.info(
+            f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+        )
+
+        if not insuree_waiting_period:
+            logger.info(
+                f"get_policy_status : insuree_waiting_period : {insuree_waiting_period}"
+            )
+            return Policy.STATUS_LOCKED
+
+        # policy_status = Policy.STATUS_LOCKED
+
+        waiting_period = insuree_waiting_period.waiting_period
+        # periodicity = insuree_waiting_period.contribution_periodicity
+
+        if waiting_period > 0:
+            waiting_period = waiting_period - 1
+
+        logger.info(
+            f"**************get_policy_status : waiting_period : {waiting_period}"
+        )
+
+        InsureeWaitingPeriod.objects.filter(id=insuree_waiting_period.id).update(
+            waiting_period=waiting_period
+        )
+
+        logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+
+        if waiting_period == 0:
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            return Policy.STATUS_READY
+        else:
+            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            return Policy.STATUS_LOCKED
+    except Exception as e:
+        logger.error(f"Error getting policy status: {e}")
+        return Policy.STATUS_LOCKED
 
 
 class PaymentService(object):
