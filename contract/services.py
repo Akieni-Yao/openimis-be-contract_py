@@ -44,9 +44,18 @@ logger = logging.getLogger("openimis." + __file__)
 
 
 def generate_contract_code(policy_holder, date):
-    # Get department code from policy holder location (first 2 letters)
-    department_code = policy_holder.locations.name[:2].upper()
-
+    # Get department code from policy holder location (first 3 letters)
+    department_code = None
+    location = policy_holder.locations
+    while location:
+        if hasattr(location, 'type') and location.type == 'D':
+            department_code = location.name[:3].upper()
+            break
+        location = location.parent if hasattr(location, 'parent') else None
+    if not department_code:
+        logger.error(f"No department (type 'D') found in location hierarchy for policy holder {policy_holder.id}")
+        raise ValueError(f"Could not find department (type 'D') in location hierarchy for policy holder {policy_holder.id}")
+    
     # Get month and year from current date
     month = date.strftime("%m")
     year = date.strftime("%Y")
