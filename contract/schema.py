@@ -146,22 +146,30 @@ class Query(graphene.ObjectType):
                             end_date = start_date + relativedelta(months=periodicity)
                             end_date -= timedelta(days=1)
                     elif periodicity == 12:
+                        logger.info(f"======= periodicity {periodicity}")
                         is_exist = Contract.objects.filter(
                             policy_holder__id=policyholder_id,
                             is_deleted=False,
                             date_valid_from__gte=start_date,
                         )
+                        logger.info(f"======= is_exist {is_exist}")
+                        logger.info(f"======= contract {contract}")
                         if not is_exist and not contract:
+                            logger.info(f"======= end_date 1 {end_date}")
                             end_date = start_date + relativedelta(months=periodicity)
                             end_date -= timedelta(days=1)
                         elif (
                             not is_exist
-                            and start_date
+                            and start_date.date()
                             >= (contract.date_valid_from + timedelta(days=1)).date()
                         ):
                             end_date = start_date + relativedelta(months=periodicity)
                             end_date -= timedelta(days=1)
+                            logger.info(f"======== end_date 2 {end_date}")
                         else:
+                            logger.info(
+                                "======= Invalid Month! Contract of Current or Previous Month is already created."
+                            )
                             return {
                                 "error": "Invalid Month! Contract of Current or Previous Month is already created."
                             }

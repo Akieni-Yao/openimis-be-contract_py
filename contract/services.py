@@ -1789,10 +1789,14 @@ def get_policy_status(insuree, policy_holder):
         # policy_status = Policy.STATUS_LOCKED
 
         waiting_period = insuree_waiting_period.waiting_period
-        # periodicity = insuree_waiting_period.contribution_periodicity
-
-        if waiting_period > 0:
-            waiting_period = waiting_period - 1
+        periodicity = insuree_waiting_period.contribution_periodicity
+        
+        if periodicity == 1 or periodicity == 3:
+            if waiting_period > 0:
+                waiting_period = waiting_period - periodicity
+                
+        if periodicity == 12:
+            waiting_period = 0
 
         logger.info(
             f"**************get_policy_status : waiting_period : {waiting_period}"
