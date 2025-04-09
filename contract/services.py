@@ -42,20 +42,49 @@ from .config import get_message_counter_contract
 
 logger = logging.getLogger("openimis." + __file__)
 
+# Map of department names to codes
+DEPARTMENT_CODES = {
+    'BOUENZA': 'BOA',
+    'CUVETTE': 'CVT', 
+    'CUVETTE-OUEST': 'CVO',
+    'KOUILOU': 'KLO',
+    'LEKOUMOU': 'LKM',
+    'LIKOUALA': 'LKA',
+    'NIARI': 'NRI',
+    'PLATEAUX': 'PTX',
+    'POOL': 'POL',
+    'SANGHA': 'SGH',
+    'POINTE-NOIRE': 'PNR',
+    'BRAZZAVILLE': 'BZV',
+    'DJOUE-LEFINI': 'DJL',
+    'NKENI-ALIMA': 'NKA',
+    'CONGO-OUBANGUI': 'COB'
+}
 
 def generate_contract_code(policy_holder, date):
-    # Get department code from policy holder location (first 3 letters)
+    # Get department code from policy holder location
     department_code = None
     location = policy_holder.locations
     while location:
         if hasattr(location, 'type') and location.type == 'D':
-            department_code = location.name[:3].upper()
+            # Normalize location name - remove accents, convert to uppercase
+            import unicodedata
+            loc_name = ''.join(c for c in unicodedata.normalize('NFD', location.name)
+                             if unicodedata.category(c) != 'Mn').upper()
+            # Find best matching department code
+            for dept_name, code in DEPARTMENT_CODES.items():
+                dept_name_clean = ''.join(c for c in unicodedata.normalize('NFD', dept_name)
+                                        if unicodedata.category(c) != 'Mn')
+                if dept_name_clean in loc_name or loc_name in dept_name_clean:
+                    department_code = code
+                    break
             break
         location = location.parent if hasattr(location, 'parent') else None
+            
     if not department_code:
-        logger.error(f"No department (type 'D') found in location hierarchy for policy holder {policy_holder.id}")
-        raise ValueError(f"Could not find department (type 'D') in location hierarchy for policy holder {policy_holder.id}")
-    
+        logger.error(f"No valid department (type 'D') found in location hierarchy for policy holder {policy_holder.id}")
+        raise ValueError(f"Could not find valid department (type 'D') in location hierarchy for policy holder {policy_holder.id}")
+
     # Get month and year from current date
     month = date.strftime("%m")
     year = date.strftime("%Y")
