@@ -155,9 +155,9 @@ class Query(graphene.ObjectType):
                         logger.info(f"======= is_exist {is_exist}")
                         logger.info(f"======= contract {contract}")
                         if not is_exist and not contract:
-                            logger.info(f"======= end_date 1 {end_date}")
                             end_date = start_date + relativedelta(months=periodicity)
                             end_date -= timedelta(days=1)
+                            logger.info(f"======= end_date 1 {end_date}")
                         elif (
                             not is_exist
                             and start_date.date()
