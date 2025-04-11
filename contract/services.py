@@ -66,7 +66,7 @@ def generate_contract_code(policy_holder, date):
     department_code = None
     location = policy_holder.locations
     while location:
-        if hasattr(location, 'type') and location.type == 'D':
+        if hasattr(location, 'type') and location.type == 'R':
             # Normalize location name - remove accents, convert to uppercase
             import unicodedata
             loc_name = ''.join(c for c in unicodedata.normalize('NFD', location.name)
@@ -82,8 +82,8 @@ def generate_contract_code(policy_holder, date):
         location = location.parent if hasattr(location, 'parent') else None
             
     if not department_code:
-        logger.error(f"No valid department (type 'D') found in location hierarchy for policy holder {policy_holder.id}")
-        raise ValueError(f"Could not find valid department (type 'D') in location hierarchy for policy holder {policy_holder.id}")
+        logger.error(f"No valid department (type 'R') found in location hierarchy for policy holder {policy_holder.id}")
+        raise ValueError(f"Could not find valid department (type 'R') in location hierarchy for policy holder {policy_holder.id}")
 
     # Get month and year from current date
     month = date.strftime("%m")
