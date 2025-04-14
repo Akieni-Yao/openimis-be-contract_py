@@ -94,6 +94,7 @@ def generate_contract_code(policy_holder, date):
         code__startswith="D",
         date_created__month=date.month,
         date_created__year=date.year,
+        is_deleted=False
     ).order_by("-code")
 
     increment = 1
@@ -105,7 +106,7 @@ def generate_contract_code(policy_holder, date):
     # Format the new contract code and check if it exists
     while True:
         new_code = f"D{department_code}{month}{year}{increment:06d}"
-        if not ContractModel.objects.filter(code=new_code).exists():
+        if not ContractModel.objects.filter(code=new_code, is_deleted=False).exists():
             break
         increment += 1
     logger.debug(f"====> Generated new contract code: {new_code}")
