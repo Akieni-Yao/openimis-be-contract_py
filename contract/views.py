@@ -377,6 +377,10 @@ def update_contract_salaries(request, contract_id):
                 if not gross_salary or pd.isna(gross_salary):
                     continue
                 new_gross_salary = int(gross_salary)
+
+                if new_gross_salary <= 0:
+                    continue
+
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
                     chf_id,
@@ -425,6 +429,23 @@ def update_contract_salaries(request, contract_id):
                             "calculation_rule": {"rate": 0, "income": new_gross_salary}
                         }
                         # contract_detail.save(username=core_username)
+
+                    print(
+                        "======================================= insuree isConfirmed: %s",
+                        insuree,
+                    )
+                    updateContractDetails = ContractDetails.objects.filter(
+                        contract_id=contract_id,
+                        is_deleted=False,
+                        insuree=insuree,
+                    ).first()
+                    if updateContractDetails:
+                        print(
+                            "======================================= updateContractDetails: %s",
+                            updateContractDetails,
+                        )
+                        updateContractDetails.is_confirmed = True
+                        updateContractDetails.save(username=core_username)
 
                     # Check if the salary has changed
                     if current_salary != new_gross_salary:
