@@ -148,6 +148,8 @@ class ContractDetails(core_models.HistoryModel):
     json_param = models.JSONField(db_column="Json_param", blank=True, null=True)
 
     objects = ContractDetailsManager()
+    
+    is_confirmed = models.BooleanField(default=False)
 
     @classmethod
     def get_queryset(cls, queryset, user):
