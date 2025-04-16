@@ -44,46 +44,58 @@ logger = logging.getLogger("openimis." + __file__)
 
 # Map of department names to codes
 DEPARTMENT_CODES = {
-    'BOUENZA': 'BOA',
-    'CUVETTE': 'CVT', 
-    'CUVETTE-OUEST': 'CVO',
-    'KOUILOU': 'KLO',
-    'LEKOUMOU': 'LKM',
-    'LIKOUALA': 'LKA',
-    'NIARI': 'NRI',
-    'PLATEAUX': 'PTX',
-    'POOL': 'POL',
-    'SANGHA': 'SGH',
-    'POINTE-NOIRE': 'PNR',
-    'BRAZZAVILLE': 'BZV',
-    'DJOUE-LEFINI': 'DJL',
-    'NKENI-ALIMA': 'NKA',
-    'CONGO-OUBANGUI': 'COB'
+    "BOUENZA": "BOA",
+    "CUVETTE": "CVT",
+    "CUVETTE-OUEST": "CVO",
+    "KOUILOU": "KLO",
+    "LEKOUMOU": "LKM",
+    "LIKOUALA": "LKA",
+    "NIARI": "NRI",
+    "PLATEAUX": "PTX",
+    "POOL": "POL",
+    "SANGHA": "SGH",
+    "POINTE-NOIRE": "PNR",
+    "BRAZZAVILLE": "BZV",
+    "DJOUE-LEFINI": "DJL",
+    "NKENI-ALIMA": "NKA",
+    "CONGO-OUBANGUI": "COB",
 }
+
 
 def generate_contract_code(policy_holder, date):
     # Get department code from policy holder location
     department_code = None
     location = policy_holder.locations
     while location:
-        if hasattr(location, 'type') and location.type == 'R':
+        if hasattr(location, "type") and location.type == "R":
             # Normalize location name - remove accents, convert to uppercase
             import unicodedata
-            loc_name = ''.join(c for c in unicodedata.normalize('NFD', location.name)
-                             if unicodedata.category(c) != 'Mn').upper()
+
+            loc_name = "".join(
+                c
+                for c in unicodedata.normalize("NFD", location.name)
+                if unicodedata.category(c) != "Mn"
+            ).upper()
             # Find best matching department code
             for dept_name, code in DEPARTMENT_CODES.items():
-                dept_name_clean = ''.join(c for c in unicodedata.normalize('NFD', dept_name)
-                                        if unicodedata.category(c) != 'Mn')
+                dept_name_clean = "".join(
+                    c
+                    for c in unicodedata.normalize("NFD", dept_name)
+                    if unicodedata.category(c) != "Mn"
+                )
                 if dept_name_clean in loc_name or loc_name in dept_name_clean:
                     department_code = code
                     break
             break
-        location = location.parent if hasattr(location, 'parent') else None
-            
+        location = location.parent if hasattr(location, "parent") else None
+
     if not department_code:
-        logger.error(f"No valid department (type 'R') found in location hierarchy for policy holder {policy_holder.id}")
-        raise ValueError(f"Could not find valid department (type 'R') in location hierarchy for policy holder {policy_holder.id}")
+        logger.error(
+            f"No valid department (type 'R') found in location hierarchy for policy holder {policy_holder.id}"
+        )
+        raise ValueError(
+            f"Could not find valid department (type 'R') in location hierarchy for policy holder {policy_holder.id}"
+        )
 
     # Get month and year from current date
     month = date.strftime("%m")
@@ -94,7 +106,7 @@ def generate_contract_code(policy_holder, date):
         code__startswith="D",
         date_created__month=date.month,
         date_created__year=date.year,
-        is_deleted=False
+        is_deleted=False,
     ).order_by("-code")
 
     increment = 1
@@ -449,7 +461,7 @@ class Contract(object):
         if not contract_to_submit.policy_holder:
             raise ContractUpdateError("The contract does not contain PolicyHolder!")
         contract_details = ContractDetailsModel.objects.filter(
-            contract_id=contract_to_submit.id
+            contract_id=contract_to_submit.id, is_confirmed=True, is_deleted=False
         )
         if contract_details.count() == 0:
             raise ContractUpdateError("The contract does not contain any insuree!")
@@ -513,7 +525,9 @@ class Contract(object):
             contract_details_list["data"] = self.__gather_policy_holder_insuree(
                 list(
                     ContractDetailsModel.objects.filter(
-                        contract_id=contract_to_approve.id
+                        contract_id=contract_to_approve.id,
+                        is_confirmed=True,
+                        is_deleted=False,
                     ).values()
                 ),
                 contract_to_approve.amendment,
@@ -1477,7 +1491,7 @@ class ContractContributionPlanDetails(object):
             logger.info(f"=======++++++++++++ self.contract {self.contract}")
 
             ContractPolicy.objects.create(
-                contract=self.contract['contract'],
+                contract=self.contract["contract"],
                 policy=cur_policy,
                 insuree=insuree,
                 policy_holder=policy_holder,
@@ -1820,11 +1834,11 @@ def get_policy_status(insuree, policy_holder):
 
         waiting_period = insuree_waiting_period.waiting_period
         periodicity = insuree_waiting_period.contribution_periodicity
-        
+
         if periodicity == 1 or periodicity == 3:
             if waiting_period > 0:
                 waiting_period = waiting_period - periodicity
-                
+
         if periodicity == 12:
             waiting_period = 0
 

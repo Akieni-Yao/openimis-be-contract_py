@@ -6,6 +6,7 @@ from contract.models import (
     ContractDetailsMutation,
     ContractMutation,
 )
+from contract.utils import custom_round
 from contribution.gql_queries import PremiumGQLType
 from contribution_plan.gql.gql_types import (
     ContributionPlanBundleGQLType,
@@ -114,14 +115,16 @@ class ContractDetailsGQLType(DjangoObjectType):
                     self_json.get('calculation_rule', {}).get('income', 0.0))
 
             # Use integer arithmetic to avoid floating-point issues
-            employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
-            salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
+            employer_contribution = (
+                ei * ercp / 100) if ercp and ei is not None else 0.0
+            salary_share = (
+                ei * eecp / 100) if eecp and ei is not None else 0.0
             total = salary_share + employer_contribution
 
             response = {
-                'total': total,
-                'employerContribution': employer_contribution,
-                'salaryShare': salary_share,
+                'total': custom_round(total),
+                'employerContribution': custom_round(employer_contribution),
+                'salaryShare': custom_round(salary_share),
             }
             return response
         except Exception as e:
@@ -157,4 +160,5 @@ class ContractMutationGQLType(DjangoObjectType):
 
 class ContractDetailsMutationGQLType(DjangoObjectType):
     class Meta:
+        model = ContractDetailsMutation
         model = ContractDetailsMutation

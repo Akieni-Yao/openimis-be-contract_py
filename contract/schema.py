@@ -73,6 +73,7 @@ class Query(graphene.ObjectType):
         ContractDetailsGQLType,
         client_mutation_id=graphene.String(),
         orderBy=graphene.List(of_type=graphene.String),
+        is_confirmed=graphene.Boolean(),
     )
 
     contract_contribution_plan_details = OrderedDjangoFilterConnectionField(
@@ -241,6 +242,9 @@ class Query(graphene.ObjectType):
             filters.append(
                 Q(mutations__mutation__client_mutation_id=client_mutation_id)
             )
+        is_confirmed = kwargs.get("is_confirmed", None)
+        if is_confirmed:
+            filters.append(Q(is_confirmed=is_confirmed))
 
         return gql_optimizer.query(ContractDetails.objects.filter(*filters).all(), info)
 
