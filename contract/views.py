@@ -328,6 +328,8 @@ def update_contract_salaries(request, contract_id):
             }
             logger.debug("Indexed existing contract details by chf_id")
 
+            confirmed_insurees = []
+
             # Iterate over each row in the Excel file
             for index, line in df.iterrows():
                 total_lines += 1
@@ -379,6 +381,10 @@ def update_contract_salaries(request, contract_id):
                 if not gross_salary or pd.isna(gross_salary):
                     continue
                 new_gross_salary = int(gross_salary)
+
+                if new_gross_salary <= 0:
+                    continue
+
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
                     chf_id,
@@ -428,7 +434,29 @@ def update_contract_salaries(request, contract_id):
                         }
                         # contract_detail.save(username=core_username)
 
+                    # print(
+                    #     "======================================= insuree isConfirmed: %s",
+                    #     insuree,
+                    # )
+                    # updateContractDetails = ContractDetails.objects.filter(
+                    #     contract_id=contract_id,
+                    #     is_deleted=False,
+                    #     insuree=insuree,
+                    # ).first()
+
+                    # if (
+                    #     updateContractDetails
+                    #     and updateContractDetails.is_confirmed is False
+                    # ):
+                    #     print(
+                    #         "======================================= updateContractDetails: %s",
+                    #         updateContractDetails,
+                    #     )
+                    #     updateContractDetails.is_confirmed = True
+                    #     updateContractDetails.save(username=core_username)
+
                     # Check if the salary has changed
+                    confirmed_insurees.append(insuree)
                     if current_salary != new_gross_salary:
                         logger.debug("Updating salary for chf_id %s", chf_id)
                         logger.info(
@@ -466,6 +494,37 @@ def update_contract_salaries(request, contract_id):
                 line_data = line.to_dict()
                 line_data["Status"] = status
                 processed_data.append(line_data)
+
+            # Update the is_confirmed field for the confirmed_insurees
+            logger.info("confirmed_insurees: %s", confirmed_insurees)
+
+            contract_details = ContractDetails.objects.filter(
+                contract_id=contract_id,
+                is_deleted=False,
+                insuree__in=confirmed_insurees,
+            )
+
+            for contract_detail in contract_details:
+                if contract_detail.is_confirmed is False:
+                    contract_detail.is_confirmed = True
+                    contract_detail.save(username=core_username)
+
+            logger.info("confirmed_insurees: %s", confirmed_insurees)
+
+            contract_details_exludes = ContractDetails.objects.filter(
+                contract_id=contract_id,
+                is_deleted=False,
+            ).exclude(insuree__in=confirmed_insurees)
+
+            for contract_details_exlude in contract_details_exludes:
+                if contract_details_exlude.is_confirmed is True:
+                    contract_details_exlude.is_confirmed = False
+                    contract_details_exlude.save(username=core_username)
+
+            # Update the is_confirmed field for the confirmed_insurees
+            logger.info(
+                "turn is_confirmed to false for the insurees not in confirmed_insurees"
+            )
 
             # Create DataFrame for processed data with status
             processed_df = pd.DataFrame(processed_data)

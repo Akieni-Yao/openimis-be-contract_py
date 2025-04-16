@@ -65,12 +65,10 @@ def resolve_custom_field(detail):
         self_json = detail.json_ext if detail.json_ext else None
         ei = 0.0
         if self_json:
-            ei = float(self_json.get(
-                "calculation_rule", {}).get("income", 0.0))
+            ei = float(self_json.get("calculation_rule", {}).get("income", 0.0))
 
         # Use integer arithmetic to avoid floating-point issues
-        employer_contribution = (
-            ei * ercp / 100) if ercp and ei is not None else 0.0
+        employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
         salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
         total = salary_share + employer_contribution
 
@@ -162,8 +160,7 @@ def generate_report_for_contract_receipt(contract_id, info):
 
     now = datetime.datetime.now()
     try:
-        contract = Contract.objects.filter(
-            id=contract_id, is_deleted=False).first()
+        contract = Contract.objects.filter(id=contract_id, is_deleted=False).first()
         payment = Payment.objects.filter(contract=contract).first()
         user = User.objects.filter(id=info.context.user.id).first()
         policy_holder = PolicyHolder.objects.filter(
@@ -173,8 +170,7 @@ def generate_report_for_contract_receipt(contract_id, info):
         print(f"==================================== contract {contract}")
         print(f"==================================== payment {payment}")
         print(f"==================================== user {user}")
-        print(
-            f"==================================== policy_holder {policy_holder}")
+        print(f"==================================== policy_holder {policy_holder}")
 
         locations = policy_holder.locations
         location = {
@@ -194,7 +190,7 @@ def generate_report_for_contract_receipt(contract_id, info):
 
         if contract:
             contract_details = ContractDetails.objects.filter(
-                contract_id=contract_id, is_deleted=False
+                contract_id=contract_id, is_deleted=False, is_confirmed=True
             )
             if contract_details:
                 # policy_holder = contract.policy_holder
@@ -211,8 +207,7 @@ def generate_report_for_contract_receipt(contract_id, info):
                 total_due_pay = (
                     contract.amount_due if contract.amount_due is not None else 0
                 )
-                print(
-                    f"================================= info {info.context.user.id}")
+                print(f"================================= info {info.context.user.id}")
 
                 print(f"==================================== user {user}")
 
@@ -276,8 +271,7 @@ def generate_report_for_contract_receipt(contract_id, info):
                         "user_name": user_name,
                     }
                 }
-                print(
-                    f"=========================================== data {data}")
+                print(f"=========================================== data {data}")
                 report_name = "contract_referrals"
                 report_config = ReportConfig.get_report(report_name)
                 print("=========================================== report_config ")
@@ -363,8 +357,7 @@ def create_new_insuree_and_add_contract_details(
             audit_user_id=user_id,
             status="PRE_REGISTERED",
             address="",
-            json_ext={"enrolmentType": map_enrolment_type_to_category(
-                enrolment_type)},
+            json_ext={"enrolmentType": map_enrolment_type_to_category(enrolment_type)},
         )
 
     if family:
@@ -412,8 +405,7 @@ def create_new_insuree_and_add_contract_details(
             )
             create_abis_insuree(None, insuree_created)
         except Exception as e:
-            logger.error(
-                f"insuree bulk upload error for abis or workflow : {e}")
+            logger.error(f"insuree bulk upload error for abis or workflow : {e}")
 
         phi = PolicyHolderInsuree(
             insuree=insuree_created,
@@ -479,8 +471,7 @@ def get_next_month_limit_date(cpb_date, contract_date):
             current_day = get_period_from_date(cpb_date)
 
         if contract_date:
-            new_date = contract_date.replace(
-                day=current_day) + relativedelta(months=1)
+            new_date = contract_date.replace(day=current_day) + relativedelta(months=1)
 
         if hasattr(datetime.date, "from_ad_date"):
             new_date = datetime.date.from_ad_date(new_date)
@@ -499,10 +490,10 @@ def get_due_payment_date(contract):
         contract_date_valid_to = contract.date_valid_from
         # now = datetime.now().date()
         payment_due_date = get_next_month_limit_date(
-            payment_end_date, contract_date_valid_to)
+            payment_end_date, contract_date_valid_to
+        )
     logger.info("************************************************************")
-    logger.info(
-        f"config_payment_end_date  : {product_config['paymentEndDate']}")
+    logger.info(f"config_payment_end_date  : {product_config['paymentEndDate']}")
     logger.info(f"payment_due_date  : {payment_due_date}")
     logger.info(f"contract_date_valid_to  : {contract_date_valid_to}")
     logger.info("************************************************************")
@@ -526,11 +517,11 @@ def format_number(number):
         else:
             num_str = str(number)
         # Remove commas and convert to float
-        num = float(num_str.replace(',', ''))
+        num = float(num_str.replace(",", ""))
         # Convert to integer to remove decimal places
         num = int(num)
         # Format with spaces as thousand separators
-        return '{:,}'.format(num).replace(',', ' ')
+        return "{:,}".format(num).replace(",", " ")
     except (ValueError, TypeError):
         return str(number)
 
