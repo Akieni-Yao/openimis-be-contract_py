@@ -461,7 +461,7 @@ class Contract(object):
         if not contract_to_submit.policy_holder:
             raise ContractUpdateError("The contract does not contain PolicyHolder!")
         contract_details = ContractDetailsModel.objects.filter(
-            contract_id=contract_to_submit.id
+            contract_id=contract_to_submit.id, is_confirmed=True, is_deleted=False
         )
         if contract_details.count() == 0:
             raise ContractUpdateError("The contract does not contain any insuree!")
@@ -525,7 +525,9 @@ class Contract(object):
             contract_details_list["data"] = self.__gather_policy_holder_insuree(
                 list(
                     ContractDetailsModel.objects.filter(
-                        contract_id=contract_to_approve.id
+                        contract_id=contract_to_approve.id,
+                        is_confirmed=True,
+                        is_deleted=False,
                     ).values()
                 ),
                 contract_to_approve.amendment,
