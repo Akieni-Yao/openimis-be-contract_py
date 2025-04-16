@@ -1,8 +1,10 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from datetime import datetime as dt
+from datetime import timedelta
 
+from contract.models import Contract, ContractContributionPlanDetails, ContractDetails
 from contribution_plan.models import ContributionPlanBundleDetails
 from core.models import User
 from django.db.models import Q
@@ -26,8 +28,6 @@ from policyholder.models import (
 from report.apps import ReportConfig
 from report.services import generate_report, get_report_definition
 from workflow.workflow_stage import insuree_add_to_workflow
-
-from contract.models import Contract, ContractContributionPlanDetails, ContractDetails
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +75,9 @@ def resolve_custom_field(detail):
         total = salary_share + employer_contribution
 
         response = {
-            "total": total,
-            "employerContribution": employer_contribution,
-            "salaryShare": salary_share,
+            "total": custom_round(total),
+            "employerContribution": custom_round(employer_contribution),
+            "salaryShare": custom_round(salary_share),
         }
 
         return response
@@ -533,3 +533,40 @@ def format_number(number):
         return '{:,}'.format(num).replace(',', ' ')
     except (ValueError, TypeError):
         return str(number)
+
+
+def custom_round(number: float) -> int:
+    """
+    Rounds a number based on the first digit after the decimal point.
+
+    - If the first digit after the decimal is 5 or more (≥5), rounds up
+    (arrondi par excès).
+    - If the first digit after the decimal is less than 5 (<5), rounds down
+    (arrondi par défaut).
+
+    Args:
+        number (float): The decimal number to round.
+
+    Returns:
+        int: The rounded integer.
+
+    Examples:
+        >>> custom_round(28294.63)
+        28295
+
+        >>> custom_round(7355.257)
+        7355
+
+        >>> custom_round(8075.931500000001)
+        8076
+    """
+
+    integer_part = int(number)
+    decimal_part = abs(number - integer_part)
+
+    first_decimal_digit = int(decimal_part * 10)
+
+    if first_decimal_digit >= 5:
+        return integer_part + 1 if number >= 0 else integer_part - 1
+    else:
+        return integer_part
