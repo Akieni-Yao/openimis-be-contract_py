@@ -330,6 +330,9 @@ def update_contract_salaries(request, contract_id):
 
             confirmed_insurees = []
 
+            # remove duplicates
+            df = df.drop_duplicates(subset=["Numéro CAMU temporaire"])
+
             # Iterate over each row in the Excel file
             for index, line in df.iterrows():
                 total_lines += 1
