@@ -435,28 +435,6 @@ def update_contract_salaries(request, contract_id):
                         contract_detail.json_ext = {
                             "calculation_rule": {"rate": 0, "income": new_gross_salary}
                         }
-                        # contract_detail.save(username=core_username)
-
-                    # print(
-                    #     "======================================= insuree isConfirmed: %s",
-                    #     insuree,
-                    # )
-                    # updateContractDetails = ContractDetails.objects.filter(
-                    #     contract_id=contract_id,
-                    #     is_deleted=False,
-                    #     insuree=insuree,
-                    # ).first()
-
-                    # if (
-                    #     updateContractDetails
-                    #     and updateContractDetails.is_confirmed is False
-                    # ):
-                    #     print(
-                    #         "======================================= updateContractDetails: %s",
-                    #         updateContractDetails,
-                    #     )
-                    #     updateContractDetails.is_confirmed = True
-                    #     updateContractDetails.save(username=core_username)
 
                     # Check if the salary has changed
                     confirmed_insurees.append(insuree)
