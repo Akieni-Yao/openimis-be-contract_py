@@ -150,6 +150,8 @@ class ContractDetails(core_models.HistoryModel):
     objects = ContractDetailsManager()
     
     is_confirmed = models.BooleanField(default=False)
+    
+    is_new_insuree = models.BooleanField(default=False)
 
     @classmethod
     def get_queryset(cls, queryset, user):
