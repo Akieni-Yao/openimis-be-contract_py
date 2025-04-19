@@ -421,6 +421,7 @@ def create_new_insuree_and_add_contract_details(
             insuree=insuree_created,
             contribution_plan_bundle=cpb,
             json_ext={},
+            is_new_insuree=True,
         )
         contract_detail.save(username=request.user.username)
 
