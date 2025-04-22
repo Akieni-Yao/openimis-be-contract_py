@@ -383,11 +383,16 @@ def update_contract_salaries(request, contract_id):
                     }
 
                 gross_salary = line.get("Gross Salary")
-                if not gross_salary or pd.isna(gross_salary):
+                if contract.use_bundle_contribution_plan_amount is False and (
+                    not gross_salary or pd.isna(gross_salary)
+                ):
                     continue
                 new_gross_salary = int(gross_salary)
 
-                if new_gross_salary <= 0:
+                if (
+                    contract.use_bundle_contribution_plan_amount is False
+                    and new_gross_salary <= 0
+                ):
                     continue
 
                 logger.debug(
@@ -432,7 +437,10 @@ def update_contract_salaries(request, contract_id):
                         "Current salary for chf_id %s is %s", chf_id, current_salary
                     )
 
-                    if current_salary == 0:
+                    if (
+                        contract.use_bundle_contribution_plan_amount is False
+                        and current_salary == 0
+                    ):
                         # json_ext: {'calculation_rule': {'rate': 0, 'income': '69000'}}
                         contract_detail.json_ext = {
                             "calculation_rule": {"rate": 0, "income": new_gross_salary}
@@ -440,7 +448,10 @@ def update_contract_salaries(request, contract_id):
 
                     # Check if the salary has changed
                     confirmed_insurees.append(insuree)
-                    if current_salary != new_gross_salary:
+                    if (
+                        contract.use_bundle_contribution_plan_amount is False
+                        and current_salary != new_gross_salary
+                    ):
                         logger.debug("Updating salary for chf_id %s", chf_id)
                         logger.info(
                             f"---------------------------contract_detail.json_ext: {contract_detail.json_ext}"

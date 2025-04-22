@@ -257,6 +257,7 @@ class Contract(object):
                             pass  # Keep the original value if it can't be converted to a number
                     rounded_total_amount = round(total_amount)
                     c.amount_notified = rounded_total_amount
+                    c.use_bundle_contribution_plan_amount = True
 
             print(f"---------------------------c-1: {c}")
             historical_record = c.history.all().last()

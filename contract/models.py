@@ -11,7 +11,6 @@ from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 from insuree.models import Insuree
 
 
-
 class ContractManager(models.Manager):
     def filter(self, *args, **kwargs):
         keys = [x for x in kwargs if "itemsvc" in x]
@@ -80,6 +79,7 @@ class Contract(core_models.HistoryBusinessModel):
     )
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
+    use_bundle_contribution_plan_amount = models.BooleanField(default=False)
 
     objects = ContractManager()
 
@@ -148,9 +148,9 @@ class ContractDetails(core_models.HistoryModel):
     json_param = models.JSONField(db_column="Json_param", blank=True, null=True)
 
     objects = ContractDetailsManager()
-    
+
     is_confirmed = models.BooleanField(default=False)
-    
+
     is_new_insuree = models.BooleanField(default=False)
 
     @classmethod
@@ -242,17 +242,20 @@ class ContractDetailsMutation(core_models.UUIDModel, core_models.ObjectMutation)
         managed = True
         db_table = "contract_contractDetailsMutation"
 
+
 class InsureeWaitingPeriod(core_models.UUIDModel):
-    policy_holder_contribution_plan = models.ForeignKey(PolicyHolderContributionPlan, models.DO_NOTHING)
+    policy_holder_contribution_plan = models.ForeignKey(
+        PolicyHolderContributionPlan, models.DO_NOTHING
+    )
     insuree = models.ForeignKey(Insuree, models.DO_NOTHING)
     waiting_period = models.PositiveIntegerField()
     contribution_periodicity = models.PositiveIntegerField()
 
     class Meta:
         managed = True
-        unique_together = ('policy_holder_contribution_plan', 'insuree')
-        db_table = 'tblInsureeWaitingPeriod'
-        
+        unique_together = ("policy_holder_contribution_plan", "insuree")
+        db_table = "tblInsureeWaitingPeriod"
+
 
 class ContractPolicy(core_models.UUIDModel):
     contract = models.ForeignKey(Contract, models.DO_NOTHING)
@@ -262,12 +265,11 @@ class ContractPolicy(core_models.UUIDModel):
     # timestamp
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         managed = True
-        db_table = 'tblContractPolicy'
-        unique_together = ('contract', 'policy')
-        
+        db_table = "tblContractPolicy"
+        unique_together = ("contract", "policy")
+
     def __str__(self):
         return f"{self.contract.id} - {self.policy.id}"
-    
