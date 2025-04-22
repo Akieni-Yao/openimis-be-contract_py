@@ -387,7 +387,11 @@ def update_contract_salaries(request, contract_id):
                     not gross_salary or pd.isna(gross_salary)
                 ):
                     continue
-                new_gross_salary = int(gross_salary)
+                new_gross_salary = (
+                    int(gross_salary)
+                    if contract.use_bundle_contribution_plan_amount is False
+                    else 0
+                )
 
                 if (
                     contract.use_bundle_contribution_plan_amount is False
