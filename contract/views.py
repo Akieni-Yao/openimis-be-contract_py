@@ -387,28 +387,32 @@ def update_contract_salaries(request, contract_id):
                         for detail in exist_contract_details
                     }
 
-                
                 if chf_id in already_processed_chf_ids:
                     continue
-                
+
                 already_processed_chf_ids.append(chf_id)
-                
+
                 gross_salary = line.get("Gross Salary")
-                if contract.use_bundle_contribution_plan_amount is False and (
-                    not gross_salary or pd.isna(gross_salary)
-                ):
-                    continue
-                new_gross_salary = (
-                    int(gross_salary)
-                    if contract.use_bundle_contribution_plan_amount is False
-                    else 0
+
+                new_gross_salary = 0
+
+                logger.info(
+                    f"======================== contract.use_bundle_contribution_plan_amount {contract.use_bundle_contribution_plan_amount}"
                 )
 
-                if (
-                    contract.use_bundle_contribution_plan_amount is False
-                    and new_gross_salary <= 0
-                ):
-                    continue
+                logger.info(f"========================= gross_salary {gross_salary}")
+                logger.info(
+                    f"========================= new_gross_salary {new_gross_salary}"
+                )
+
+                if contract.use_bundle_contribution_plan_amount is False:
+                    if not gross_salary or pd.isna(gross_salary):
+                        continue
+
+                    new_gross_salary = int(gross_salary)
+
+                    if new_gross_salary <= 0:
+                        continue
 
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
@@ -452,10 +456,7 @@ def update_contract_salaries(request, contract_id):
                         "Current salary for chf_id %s is %s", chf_id, current_salary
                     )
 
-                    if (
-                        contract.use_bundle_contribution_plan_amount is False
-                        and current_salary == 0
-                    ):
+                    if current_salary == 0:
                         # json_ext: {'calculation_rule': {'rate': 0, 'income': '69000'}}
                         contract_detail.json_ext = {
                             "calculation_rule": {"rate": 0, "income": new_gross_salary}
@@ -463,10 +464,7 @@ def update_contract_salaries(request, contract_id):
 
                     # Check if the salary has changed
                     confirmed_insurees.append(insuree)
-                    if (
-                        contract.use_bundle_contribution_plan_amount is False
-                        and current_salary != new_gross_salary
-                    ):
+                    if current_salary != new_gross_salary:
                         logger.debug("Updating salary for chf_id %s", chf_id)
                         logger.info(
                             f"---------------------------contract_detail.json_ext: {contract_detail.json_ext}"
@@ -574,6 +572,10 @@ def re_evaluate_contract_details(contract_id, user, core_username):
 
     contract_service = ContractService(user=user)
     contract = Contract.objects.filter(id=contract_id).first()
+
+    if contract.use_bundle_contribution_plan_amount is False:
+        logger.info("contract.use_bundle_contribution_plan_amount is False")
+        return
 
     logger.info(f"evaluate_contract_details : contract = {contract}")
 

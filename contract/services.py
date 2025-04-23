@@ -246,7 +246,7 @@ class Contract(object):
                     contract_details_result=result_ph_insuree,
                 )["total_amount"]
                 print(f"---------------------------total_amount: {total_amount}")
-                if total_amount is not None:
+                if total_amount is not None and total_amount > 0:
                     if isinstance(total_amount, str):
                         try:
                             print(
