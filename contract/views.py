@@ -268,6 +268,7 @@ def update_contract_salaries(request, contract_id):
     )
 
     file = request.FILES["file"]
+    user = request.user
     user_id = request.user.id_for_audit
     core_username = request.user.username
     total_lines = 0
@@ -333,7 +334,11 @@ def update_contract_salaries(request, contract_id):
             confirmed_insurees = []
 
             # remove duplicates
-            df = df.drop_duplicates(subset=["Numéro CAMU temporaire"])
+            # df = df.drop_duplicates(subset=["Numéro CAMU temporaire"])
+
+            # remove duplicate
+
+            already_processed_chf_ids = []
 
             # Iterate over each row in the Excel file
             for index, line in df.iterrows():
@@ -382,13 +387,32 @@ def update_contract_salaries(request, contract_id):
                         for detail in exist_contract_details
                     }
 
-                gross_salary = line.get("Gross Salary")
-                if not gross_salary or pd.isna(gross_salary):
+                if chf_id in already_processed_chf_ids:
                     continue
-                new_gross_salary = int(gross_salary)
 
-                if new_gross_salary <= 0:
-                    continue
+                already_processed_chf_ids.append(chf_id)
+
+                gross_salary = line.get("Gross Salary")
+
+                new_gross_salary = 0
+
+                logger.info(
+                    f"======================== contract.use_bundle_contribution_plan_amount {contract.use_bundle_contribution_plan_amount}"
+                )
+
+                logger.info(f"========================= gross_salary {gross_salary}")
+                logger.info(
+                    f"========================= new_gross_salary {new_gross_salary}"
+                )
+
+                if contract.use_bundle_contribution_plan_amount is False:
+                    if not gross_salary or pd.isna(gross_salary):
+                        continue
+
+                    new_gross_salary = int(gross_salary)
+
+                    if new_gross_salary <= 0:
+                        continue
 
                 logger.debug(
                     "Extracted chf_id: %s and new_gross_salary: %s",
@@ -523,6 +547,11 @@ def update_contract_salaries(request, contract_id):
                 total_lines,
                 total_salaries_updated,
             )
+
+            # evaluate contract details
+            re_evaluate_contract_details(contract_id, user, core_username)
+            # evaluate contract details
+
             return JsonResponse({"success": True, "message": None})
         else:
             # Construct error message
@@ -535,6 +564,55 @@ def update_contract_salaries(request, contract_id):
             "An unexpected error occurred during the import process: %s", str(e)
         )
         return Response({"success": False, "error": str(e)}, status=500)
+
+
+def re_evaluate_contract_details(contract_id, user, core_username):
+    from contract.services import Contract as ContractService
+    from contract.models import ContractDetails
+
+    contract_service = ContractService(user=user)
+    contract = Contract.objects.filter(id=contract_id).first()
+
+    if contract.use_bundle_contribution_plan_amount is False:
+        logger.info("contract.use_bundle_contribution_plan_amount is False")
+        return
+
+    logger.info(f"evaluate_contract_details : contract = {contract}")
+
+    contract_details = ContractDetails.objects.filter(
+        contract_id=contract.id, is_confirmed=True, is_deleted=False
+    )
+
+    logger.info(f"contract_details: {contract_details}")
+
+    contract_details_list = {}
+    contract_details_list["contract"] = contract
+    contract_details_list["data"] = ContractService.gather_policy_holder_insuree_2(
+        contract_service,
+        list(
+            ContractDetails.objects.filter(
+                contract_id=contract.id,
+                is_confirmed=True,
+                is_deleted=False,
+            ).values()
+        ),
+        contract.amendment,
+        contract.date_valid_from,
+    )
+
+    logger.info(f"contract_details_list: {contract_details_list}")
+
+    contract_contribution_plan_details = contract_service.evaluate_contract_valuation(
+        contract_details_result=contract_details_list, save=False
+    )
+
+    amount_due = contract_contribution_plan_details["total_amount"]
+    logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
+    if isinstance(amount_due, str):
+        amount_due = float(amount_due)
+    rounded_amount = round(amount_due)
+    contract.amount_notified = rounded_amount
+    contract.save(username=core_username)
 
 
 def update_salary(parsed_json, new_income):
