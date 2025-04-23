@@ -499,6 +499,29 @@ class Contract(object):
             )
         return result
 
+    def gather_policy_holder_insuree_2(
+        self, contract_details, amendment, contract_date_valid_from=None
+    ):
+        result = []
+        
+        for cd in contract_details:
+            ph_insuree = PolicyHolderInsuree.objects.filter(
+                Q(insuree_id=cd["insuree_id"], last_policy__isnull=False)
+            ).first()
+            policy_id = ph_insuree.last_policy.id if ph_insuree else None
+            result.append(
+                {
+                    "id": f"{cd['id']}",
+                    "contribution_plan_bundle": f"{cd['contribution_plan_bundle_id']}",
+                    "policy_id": policy_id,
+                    "json_ext": cd["json_ext"],
+                    "contract_date_valid_from": contract_date_valid_from,
+                    "insuree_id": cd["insuree_id"],
+                    "amendment": amendment,
+                }
+            )
+        return result
+
     @check_authentication
     def approve(self, contract):
         try:

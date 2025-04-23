@@ -268,6 +268,7 @@ def update_contract_salaries(request, contract_id):
     )
 
     file = request.FILES["file"]
+    user = request.user
     user_id = request.user.id_for_audit
     core_username = request.user.username
     total_lines = 0
@@ -538,6 +539,11 @@ def update_contract_salaries(request, contract_id):
                 total_lines,
                 total_salaries_updated,
             )
+
+            # evaluate contract details
+            re_evaluate_contract_details(contract_id, user, core_username)
+            # evaluate contract details
+
             return JsonResponse({"success": True, "message": None})
         else:
             # Construct error message
@@ -550,6 +556,51 @@ def update_contract_salaries(request, contract_id):
             "An unexpected error occurred during the import process: %s", str(e)
         )
         return Response({"success": False, "error": str(e)}, status=500)
+
+
+def re_evaluate_contract_details(contract_id, user, core_username):
+    from contract.services import Contract as ContractService
+    from contract.models import ContractDetails
+
+    contract_service = ContractService(user=user)
+    contract = Contract.objects.filter(id=contract_id).first()
+
+    logger.info(f"evaluate_contract_details : contract = {contract}")
+
+    contract_details = ContractDetails.objects.filter(
+        contract_id=contract.id, is_confirmed=True, is_deleted=False
+    )
+
+    logger.info(f"contract_details: {contract_details}")
+
+    contract_details_list = {}
+    contract_details_list["contract"] = contract
+    contract_details_list["data"] = ContractService.gather_policy_holder_insuree_2(
+        contract_service,
+        list(
+            ContractDetails.objects.filter(
+                contract_id=contract.id,
+                is_confirmed=True,
+                is_deleted=False,
+            ).values()
+        ),
+        contract.amendment,
+        contract.date_valid_from,
+    )
+
+    logger.info(f"contract_details_list: {contract_details_list}")
+
+    contract_contribution_plan_details = contract_service.evaluate_contract_valuation(
+        contract_details_result=contract_details_list, save=True
+    )
+
+    amount_due = contract_contribution_plan_details["total_amount"]
+    logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
+    if isinstance(amount_due, str):
+        amount_due = float(amount_due)
+    rounded_amount = round(amount_due)
+    contract.amount_notified = rounded_amount
+    contract.save(username=core_username)
 
 
 def update_salary(parsed_json, new_income):
