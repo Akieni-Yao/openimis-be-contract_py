@@ -259,6 +259,13 @@ class Contract(object):
                     c.amount_notified = rounded_total_amount
                     c.use_bundle_contribution_plan_amount = True
 
+                    contract_details_to_update = ContractDetailsModel.objects.filter(
+                        contract_id=uuid_string, is_confirmed=False, is_deleted=False
+                    )
+                    for contract_detail in contract_details_to_update:
+                        contract_detail.is_confirmed = True
+                        contract_detail.save(username=self.user.username)
+
             print(f"---------------------------c-1: {c}")
             historical_record = c.history.all().last()
             print(f"---------------------------historical_record: {historical_record}")
@@ -503,7 +510,7 @@ class Contract(object):
         self, contract_details, amendment, contract_date_valid_from=None
     ):
         result = []
-        
+
         for cd in contract_details:
             ph_insuree = PolicyHolderInsuree.objects.filter(
                 Q(insuree_id=cd["insuree_id"], last_policy__isnull=False)
