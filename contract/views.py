@@ -334,7 +334,11 @@ def update_contract_salaries(request, contract_id):
             confirmed_insurees = []
 
             # remove duplicates
-            df = df.drop_duplicates(subset=["Numéro CAMU temporaire"])
+            # df = df.drop_duplicates(subset=["Numéro CAMU temporaire"])
+
+            # remove duplicate
+
+            already_processed_chf_ids = []
 
             # Iterate over each row in the Excel file
             for index, line in df.iterrows():
@@ -383,6 +387,12 @@ def update_contract_salaries(request, contract_id):
                         for detail in exist_contract_details
                     }
 
+                
+                if chf_id in already_processed_chf_ids:
+                    continue
+                
+                already_processed_chf_ids.append(chf_id)
+                
                 gross_salary = line.get("Gross Salary")
                 if contract.use_bundle_contribution_plan_amount is False and (
                     not gross_salary or pd.isna(gross_salary)
@@ -591,7 +601,7 @@ def re_evaluate_contract_details(contract_id, user, core_username):
     logger.info(f"contract_details_list: {contract_details_list}")
 
     contract_contribution_plan_details = contract_service.evaluate_contract_valuation(
-        contract_details_result=contract_details_list, save=True
+        contract_details_result=contract_details_list, save=False
     )
 
     amount_due = contract_contribution_plan_details["total_amount"]
