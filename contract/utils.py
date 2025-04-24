@@ -393,6 +393,13 @@ def create_new_insuree_and_add_contract_details(
         )
         chf_id = insuree_id
 
+        if insuree_created:
+            print(f"======================================= insuree_created: {insuree_created}")
+            # update family head_insuree_id
+            family = Family.objects.filter(id=family.id).first()
+            family.head_insuree_id = insuree_created.id
+            family.save()
+
         try:
             user = request.user
             create_openKm_folder_for_bulkupload(user, insuree_created)
