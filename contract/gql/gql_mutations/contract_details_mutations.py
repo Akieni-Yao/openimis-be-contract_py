@@ -1,10 +1,20 @@
 from core.gql.gql_mutations import DeleteInputType
-from core.gql.gql_mutations.base_mutation import BaseMutation, BaseDeleteMutation, \
-    BaseHistoryModelCreateMutationMixin, BaseHistoryModelUpdateMutationMixin, \
-    BaseHistoryModelDeleteMutationMixin
-from .mutations import ContractDetailsFromPHInsureeMutationMixin
-from contract.gql.gql_mutations import ContractDetailsCreateInputType, ContractDetailsUpdateInputType, \
-    ContractDetailsCreateFromInsureeInputType
+from core.gql.gql_mutations.base_mutation import (
+    BaseMutation,
+    BaseDeleteMutation,
+    BaseHistoryModelCreateMutationMixin,
+    BaseHistoryModelUpdateMutationMixin,
+    BaseHistoryModelDeleteMutationMixin,
+)
+from .mutations import (
+    ContractDetailsFromPHInsureeMutationMixin,
+    ContractDetailsUpdateMutationMixin,
+)
+from contract.gql.gql_mutations import (
+    ContractDetailsCreateInputType,
+    ContractDetailsUpdateInputType,
+    ContractDetailsCreateFromInsureeInputType,
+)
 from contract.models import ContractDetails, ContractDetailsMutation
 
 
@@ -17,18 +27,20 @@ class CreateContractDetailsMutation(BaseHistoryModelCreateMutationMixin, BaseMut
     def _mutate(cls, user, **data):
         client_mutation_id = data.get("client_mutation_id")
         if "client_mutation_id" in data:
-            data.pop('client_mutation_id')
+            data.pop("client_mutation_id")
         if "client_mutation_label" in data:
-            data.pop('client_mutation_label')
+            data.pop("client_mutation_label")
         contract_detail = cls.create_object(user=user, object_data=data)
-        ContractDetailsMutation.object_mutated(user, client_mutation_id=client_mutation_id, contract_detail=contract_detail)
+        ContractDetailsMutation.object_mutated(
+            user, client_mutation_id=client_mutation_id, contract_detail=contract_detail
+        )
         return None
 
     class Input(ContractDetailsCreateInputType):
         pass
 
 
-class UpdateContractDetailsMutation(BaseHistoryModelUpdateMutationMixin, BaseMutation):
+class UpdateContractDetailsMutation(ContractDetailsUpdateMutationMixin, BaseMutation):
     _mutation_class = "ContractDetailsMutation"
     _mutation_module = "contract"
     _model = ContractDetails
@@ -37,7 +49,9 @@ class UpdateContractDetailsMutation(BaseHistoryModelUpdateMutationMixin, BaseMut
         pass
 
 
-class DeleteContractDetailsMutation(BaseHistoryModelDeleteMutationMixin, BaseDeleteMutation):
+class DeleteContractDetailsMutation(
+    BaseHistoryModelDeleteMutationMixin, BaseDeleteMutation
+):
     _mutation_class = "ContractDetailsMutation"
     _mutation_module = "contract"
     _model = ContractDetails
@@ -46,7 +60,9 @@ class DeleteContractDetailsMutation(BaseHistoryModelDeleteMutationMixin, BaseDel
         pass
 
 
-class CreateContractDetailByPolicyHolderInsureeMutation(ContractDetailsFromPHInsureeMutationMixin, BaseMutation):
+class CreateContractDetailByPolicyHolderInsureeMutation(
+    ContractDetailsFromPHInsureeMutationMixin, BaseMutation
+):
     _mutation_class = "CreateContractDetailByPolicyHolderInsureetMutation"
     _mutation_module = "contract"
     _model = ContractDetails
