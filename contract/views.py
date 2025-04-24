@@ -573,9 +573,9 @@ def re_evaluate_contract_details(contract_id, user, core_username):
     contract_service = ContractService(user=user)
     contract = Contract.objects.filter(id=contract_id).first()
 
-    if contract.use_bundle_contribution_plan_amount is False:
-        logger.info("contract.use_bundle_contribution_plan_amount is False")
-        return
+    # if contract.use_bundle_contribution_plan_amount is False:
+    #     logger.info("contract.use_bundle_contribution_plan_amount is False")
+    #     return
 
     logger.info(f"evaluate_contract_details : contract = {contract}")
 
@@ -607,7 +607,7 @@ def re_evaluate_contract_details(contract_id, user, core_username):
     )
 
     amount_due = contract_contribution_plan_details["total_amount"]
-    logger.info(f"on_contract_approve_signal : amount_due = {amount_due}")
+    logger.info(f"......................on_contract_approve_signal : amount_due = {amount_due}")
     if isinstance(amount_due, str):
         amount_due = float(amount_due)
     rounded_amount = round(amount_due)
