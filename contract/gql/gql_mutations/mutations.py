@@ -115,6 +115,31 @@ class ContractDetailsUpdateMutationMixin:
             raise ValidationError("mutation.authentication_required")
 
     @classmethod
+    def _update_salary(cls, contract_details, value):
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
+        )
+        if not contract_details.json_ext:
+            return value
+
+        current_income = contract_details.json_ext.get("calculation_rule", {}).get(
+            "income"
+        )
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin current_income: {current_income}"
+        )
+        new_income = value.get("calculation_rule", {}).get("income")
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin new_income: {new_income}"
+        )
+        if current_income != new_income:
+            logger.info(
+                f"================= ContractDetailsUpdateMutationMixin current_income: {current_income} new_income: {new_income}"
+            )
+            return update_salary(contract_details.json_ext, new_income)
+        return None
+
+    @classmethod
     def _mutate(cls, user, **data):
         if "client_mutation_id" in data:
             data.pop("client_mutation_id")
@@ -146,12 +171,9 @@ class ContractDetailsUpdateMutationMixin:
                 elif key == "json_param":
                     contract_details.json_param = value
                 elif key == "json_ext":
-                    contract_details.json_ext = update_salary(
-                        value,
-                        contract_details.json_ext.get("calculation_rule", {}).get(
-                            "income"
-                        ),
-                    )
+                    new_json_ext = cls._update_salary(contract_details, value)
+                    if new_json_ext:
+                        contract_details.json_ext = new_json_ext
 
             logger.info(
                 f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
