@@ -1,7 +1,7 @@
 import logging
 
 # from contract.views import re_evaluate_contract_details
-from contract.views import re_evaluate_contract_details
+from contract.views import re_evaluate_contract_details, update_salary
 from core import TimeUtils
 from core.constants import CONTRACT_CREATION_NT
 from core.notification_service import create_camu_notification
@@ -204,7 +204,9 @@ class ContractDetailsCreateMutationMixin:
                     contract_details.is_new_insuree = value
                 elif key == "json_param":
                     contract_details.json_param = value
-                elif key == "jsonExt":
+                elif key == "json_ext":
+                    # new_gross_salary = value.get("calculation_rule", {}).get("income")
+                    # json_data = update_salary(value, new_gross_salary)
                     contract_details.json_ext = value
 
             logger.info(
