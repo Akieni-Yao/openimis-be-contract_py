@@ -102,6 +102,7 @@ class ContractDetailsCreateInputType(OpenIMISMutation.Input):
     contribution_plan_bundle_id = graphene.UUID(required=True)
     json_ext = graphene.types.json.JSONString(required=False)
     json_param = graphene.types.json.JSONString(required=False)
+    is_confirmed = graphene.Boolean(required=False)
 
 
 class ContractDetailsUpdateInputType(OpenIMISMutation.Input):

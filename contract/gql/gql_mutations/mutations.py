@@ -121,12 +121,12 @@ class ContractDetailsUpdateMutationMixin:
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
 
-        contract_details = ContractDetails.objects.get(
+        contract_details = ContractDetails.objects.filter(
             id=data["id"],
             contract_id=data["contract_id"],
             insuree_id=data["insuree_id"],
             contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
-        )
+        ).first()
 
         try:
             if not contract_details:
@@ -147,6 +147,76 @@ class ContractDetailsUpdateMutationMixin:
         except Exception as e:
             logger.error(f"Error updating contract details: {e}")
             return f"Error updating contract details {e}"
+
+
+class ContractDetailsCreateMutationMixin:
+    @property
+    def _model(self):
+        raise NotImplementedError()
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if (
+            type(user) is AnonymousUser
+            or not user.id
+            or not user.has_perms(ContractConfig.gql_mutation_update_contract_perms)
+        ):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        contract_details = ContractDetails.objects.filter(
+            contract_id=data["contract_id"],
+            insuree_id=data["insuree_id"],
+            contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
+        ).first()
+
+        logger.info(
+            f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+        )
+
+        if contract_details:
+            logger.info(
+                "================= ContractDetailsCreateMutationMixin contract_details already exists"
+            )
+            return "Error! - Contract details already exists"
+
+        try:
+            contract_details = ContractDetails(
+                contract_id=data["contract_id"],
+                insuree_id=data["insuree_id"],
+                contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
+            )
+
+            logger.info(
+                f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+            )
+
+            for key, value in data.items():
+                if key == "is_confirmed":
+                    contract_details.is_confirmed = value
+                elif key == "is_new_insuree":
+                    contract_details.is_new_insuree = value
+                elif key == "json_param":
+                    contract_details.json_param = value
+                elif key == "jsonExt":
+                    contract_details.json_ext = value
+
+            logger.info(
+                f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+            )
+
+            contract_details.save(username=user.username)
+            re_evaluate_contract_details(data["contract_id"], user, user.username)
+            return None
+        except Exception as e:
+            logger.error(f"Error creating contract details: {e}")
+            return f"Error creating contract details {e}"
 
 
 class ContractDeleteMutationMixin:
