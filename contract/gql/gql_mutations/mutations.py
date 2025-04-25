@@ -254,6 +254,7 @@ class ContractDetailsCreateMutationMixin:
                 f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
             )
 
+            contract_details.is_new_insuree = True
             contract_details.save(username=user.username)
             re_evaluate_contract_details(data["contract_id"], user, user.username)
             return None
