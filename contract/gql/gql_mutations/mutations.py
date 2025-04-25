@@ -1,7 +1,7 @@
 import logging
 
 # from contract.views import re_evaluate_contract_details
-from contract.views import re_evaluate_contract_details
+from contract.views import re_evaluate_contract_details, update_salary
 from core import TimeUtils
 from core.constants import CONTRACT_CREATION_NT
 from core.notification_service import create_camu_notification
@@ -115,21 +115,53 @@ class ContractDetailsUpdateMutationMixin:
             raise ValidationError("mutation.authentication_required")
 
     @classmethod
+    def _update_salary(cls, contract_details, value):
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
+        )
+        if not contract_details.json_ext:
+            return value
+
+        current_income = contract_details.json_ext.get("calculation_rule", {}).get(
+            "income"
+        )
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin current_income: {current_income}"
+        )
+        new_income = value.get("calculation_rule", {}).get("income")
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin new_income: {new_income}"
+        )
+        if current_income != new_income:
+            logger.info(
+                f"================= ContractDetailsUpdateMutationMixin current_income: {current_income} new_income: {new_income}"
+            )
+            return update_salary(contract_details.json_ext, new_income)
+        return None
+
+    @classmethod
     def _mutate(cls, user, **data):
         if "client_mutation_id" in data:
             data.pop("client_mutation_id")
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
 
-        contract_details = ContractDetails.objects.get(
+        contract_details = ContractDetails.objects.filter(
             id=data["id"],
             contract_id=data["contract_id"],
             insuree_id=data["insuree_id"],
             contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
+        ).first()
+
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
         )
 
         try:
             if not contract_details:
+                logger.info(
+                    "================= ContractDetailsUpdateMutationMixin contract_details not found"
+                )
                 return "Error! - Contract details not found"
             for key, value in data.items():
                 if key == "is_confirmed":
@@ -138,15 +170,97 @@ class ContractDetailsUpdateMutationMixin:
                     contract_details.is_new_insuree = value
                 elif key == "json_param":
                     contract_details.json_param = value
-                elif key == "jsonExt":
-                    contract_details.json_ext = value
+                elif key == "json_ext":
+                    new_json_ext = cls._update_salary(contract_details, value)
+                    if new_json_ext:
+                        contract_details.json_ext = new_json_ext
+
+            logger.info(
+                f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
+            )
 
             contract_details.save(username=user.username)
+            logger.info(
+                "================= ContractDetailsUpdateMutationMixin contract_details saved"
+            )
             re_evaluate_contract_details(data["contract_id"], user, user.username)
             return None
         except Exception as e:
             logger.error(f"Error updating contract details: {e}")
             return f"Error updating contract details {e}"
+
+
+class ContractDetailsCreateMutationMixin:
+    @property
+    def _model(self):
+        raise NotImplementedError()
+
+    @classmethod
+    def _validate_mutation(cls, user, **data):
+        if (
+            type(user) is AnonymousUser
+            or not user.id
+            or not user.has_perms(ContractConfig.gql_mutation_update_contract_perms)
+        ):
+            raise ValidationError("mutation.authentication_required")
+
+    @classmethod
+    def _mutate(cls, user, **data):
+        if "client_mutation_id" in data:
+            data.pop("client_mutation_id")
+        if "client_mutation_label" in data:
+            data.pop("client_mutation_label")
+
+        contract_details = ContractDetails.objects.filter(
+            contract_id=data["contract_id"],
+            insuree_id=data["insuree_id"],
+            contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
+        ).first()
+
+        logger.info(
+            f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+        )
+
+        if contract_details:
+            logger.info(
+                "================= ContractDetailsCreateMutationMixin contract_details already exists"
+            )
+            return "Error! - Contract details already exists"
+
+        try:
+            contract_details = ContractDetails(
+                contract_id=data["contract_id"],
+                insuree_id=data["insuree_id"],
+                contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
+            )
+
+            logger.info(
+                f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+            )
+
+            for key, value in data.items():
+                if key == "is_confirmed":
+                    contract_details.is_confirmed = value
+                elif key == "is_new_insuree":
+                    contract_details.is_new_insuree = value
+                elif key == "json_param":
+                    contract_details.json_param = value
+                elif key == "json_ext":
+                    # new_gross_salary = value.get("calculation_rule", {}).get("income")
+                    # json_data = update_salary(value, new_gross_salary)
+                    contract_details.json_ext = value
+
+            logger.info(
+                f"================= ContractDetailsCreateMutationMixin contract_details: {contract_details}"
+            )
+
+            contract_details.is_new_insuree = True
+            contract_details.save(username=user.username)
+            re_evaluate_contract_details(data["contract_id"], user, user.username)
+            return None
+        except Exception as e:
+            logger.error(f"Error creating contract details: {e}")
+            return f"Error creating contract details {e}"
 
 
 class ContractDeleteMutationMixin:
