@@ -24,19 +24,6 @@ class CreateContractDetailsMutation(ContractDetailsCreateMutationMixin, BaseMuta
     _mutation_module = "contract"
     _model = ContractDetails
 
-    # @classmethod
-    # def _mutate(cls, user, **data):
-    #     client_mutation_id = data.get("client_mutation_id")
-    #     if "client_mutation_id" in data:
-    #         data.pop("client_mutation_id")
-    #     if "client_mutation_label" in data:
-    #         data.pop("client_mutation_label")
-    #     contract_detail = cls.create_object(user=user, object_data=data)
-    #     ContractDetailsMutation.object_mutated(
-    #         user, client_mutation_id=client_mutation_id, contract_detail=contract_detail
-    #     )
-    #     return None
-
     class Input(ContractDetailsCreateInputType):
         pass
 

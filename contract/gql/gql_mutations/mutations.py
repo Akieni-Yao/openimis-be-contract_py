@@ -128,8 +128,15 @@ class ContractDetailsUpdateMutationMixin:
             contribution_plan_bundle_id=data["contribution_plan_bundle_id"],
         ).first()
 
+        logger.info(
+            f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
+        )
+
         try:
             if not contract_details:
+                logger.info(
+                    "================= ContractDetailsUpdateMutationMixin contract_details not found"
+                )
                 return "Error! - Contract details not found"
             for key, value in data.items():
                 if key == "is_confirmed":
@@ -138,10 +145,22 @@ class ContractDetailsUpdateMutationMixin:
                     contract_details.is_new_insuree = value
                 elif key == "json_param":
                     contract_details.json_param = value
-                elif key == "jsonExt":
-                    contract_details.json_ext = value
+                elif key == "json_ext":
+                    contract_details.json_ext = update_salary(
+                        value,
+                        contract_details.json_ext.get("calculation_rule", {}).get(
+                            "income"
+                        ),
+                    )
+
+            logger.info(
+                f"================= ContractDetailsUpdateMutationMixin contract_details: {contract_details}"
+            )
 
             contract_details.save(username=user.username)
+            logger.info(
+                "================= ContractDetailsUpdateMutationMixin contract_details saved"
+            )
             re_evaluate_contract_details(data["contract_id"], user, user.username)
             return None
         except Exception as e:
