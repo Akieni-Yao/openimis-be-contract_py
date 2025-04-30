@@ -159,6 +159,10 @@ class Contract(object):
 
     @check_authentication
     def create(self, contract):
+        from policyholder.gql.gql_mutations.create_mutations import (
+            get_and_set_waiting_period_for_insuree,
+        )
+
         try:
             if contract["policy_holder_id"]:
                 logger.debug(
@@ -265,6 +269,12 @@ class Contract(object):
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
                         contract_detail.save(username=self.user.username)
+                        logger.info(
+                            f"-----------------------------------*****----------- get_and_set_waiting_period_for_insuree: {contract_detail.insuree.id}, {policy_holder.id}"
+                        )
+                        get_and_set_waiting_period_for_insuree(
+                            contract_detail.insuree.id, policy_holder.id
+                        )
 
             print(f"---------------------------c-1: {c}")
             historical_record = c.history.all().last()
