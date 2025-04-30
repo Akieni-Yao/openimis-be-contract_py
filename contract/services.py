@@ -242,6 +242,20 @@ class Contract(object):
                         "amendment": 0,
                     }
                 )
+                
+                # get_and_set_waiting_period_for_insuree
+                contract_details_to_update = ContractDetailsModel.objects.filter(
+                    contract_id=uuid_string, is_deleted=False
+                )
+                for contract_detail in contract_details_to_update:
+                    logger.info(
+                        f"-----------------------------------*****----------- get_and_set_waiting_period_for_insuree: {contract_detail.insuree.id}, {policy_holder.id}"
+                    )
+                    get_and_set_waiting_period_for_insuree(
+                        contract_detail.insuree.id, policy_holder.id
+                    )
+
+                # get_and_set_waiting_period_for_insuree
 
                 print(
                     f"---------------------------result_ph_insuree: {result_ph_insuree}"
@@ -269,12 +283,12 @@ class Contract(object):
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
                         contract_detail.save(username=self.user.username)
-                        logger.info(
-                            f"-----------------------------------*****----------- get_and_set_waiting_period_for_insuree: {contract_detail.insuree.id}, {policy_holder.id}"
-                        )
-                        get_and_set_waiting_period_for_insuree(
-                            contract_detail.insuree.id, policy_holder.id
-                        )
+                        # logger.info(
+                        #     f"-----------------------------------*****----------- get_and_set_waiting_period_for_insuree: {contract_detail.insuree.id}, {policy_holder.id}"
+                        # )
+                        # get_and_set_waiting_period_for_insuree(
+                        #     contract_detail.insuree.id, policy_holder.id
+                        # )
 
             print(f"---------------------------c-1: {c}")
             historical_record = c.history.all().last()
