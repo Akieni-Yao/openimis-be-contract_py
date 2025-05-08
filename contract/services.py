@@ -1514,8 +1514,7 @@ class ContractContributionPlanDetails(object):
 
                 print("=======>last_date_covered : ", last_date_covered)
                 print("=======>expiry_date : ", expiry_date)
-                
-                breakpoint()
+            
 
             logger.info(
                 f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}"
