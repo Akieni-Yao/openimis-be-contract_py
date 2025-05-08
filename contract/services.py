@@ -1512,9 +1512,9 @@ class ContractContributionPlanDetails(object):
                     insuree, last_date_covered
                 )
 
-                print("last_date_covered : ", last_date_covered)
-                print("expiry_date : ", expiry_date)
-
+                print("=======>last_date_covered : ", last_date_covered)
+                print("=======>expiry_date : ", expiry_date)
+                
                 breakpoint()
 
             logger.info(
@@ -1567,9 +1567,9 @@ class ContractContributionPlanDetails(object):
             family=insuree.family
         ).first()
 
-        if check_already_insuree_policy is None:
+        if check_already_insuree_policy:
             return last_date_covered
-
+        
         return last_date_covered + relativedelta(months=3)
 
     @check_authentication
