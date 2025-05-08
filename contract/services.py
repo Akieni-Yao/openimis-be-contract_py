@@ -242,7 +242,7 @@ class Contract(object):
                         "amendment": 0,
                     }
                 )
-                
+
                 # get_and_set_waiting_period_for_insuree
                 contract_details_to_update = ContractDetailsModel.objects.filter(
                     contract_id=uuid_string, is_deleted=False
@@ -1508,7 +1508,13 @@ class ContractContributionPlanDetails(object):
 
                 expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
 
-                print("expiry_date : ", expiry_date)
+                last_date_covered = self.__handle_twelve_month_first_policy(
+                    insuree, last_date_covered
+                )
+
+                print("=======>last_date_covered : ", last_date_covered)
+                print("=======>expiry_date : ", expiry_date)
+            
 
             logger.info(
                 f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}"
@@ -1554,6 +1560,16 @@ class ContractContributionPlanDetails(object):
 
         logger.info("create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
+
+    def __handle_twelve_month_first_policy(self, insuree, last_date_covered):
+        check_already_insuree_policy = Policy.objects.filter(
+            family=insuree.family
+        ).first()
+
+        if check_already_insuree_policy:
+            return last_date_covered
+        
+        return last_date_covered + relativedelta(months=3)
 
     @check_authentication
     def contract_valuation(self, contract_contribution_plan_details):
