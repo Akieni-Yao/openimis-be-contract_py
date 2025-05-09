@@ -280,8 +280,24 @@ class Contract(object):
                     contract_details_to_update = ContractDetailsModel.objects.filter(
                         contract_id=uuid_string, is_confirmed=False, is_deleted=False
                     )
+
+                    forfait_total = 0
+
+                    if rounded_total_amount > 0:
+                        total_contract_detail = len(contract_details_to_update)
+                        forfait_total = rounded_total_amount / total_contract_detail
+
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
+
+                        contract_detail.json_ext = {
+                            "calculation_rule": {"rate": 0, "income": 0},
+                            "forfait_rule": {
+                                "total": round(forfait_total),
+                                "employerContribution": 0,
+                                "salaryShare": 0,
+                            },
+                        }
                         contract_detail.save(username=self.user.username)
                         # logger.info(
                         #     f"-----------------------------------*****----------- get_and_set_waiting_period_for_insuree: {contract_detail.insuree.id}, {policy_holder.id}"
@@ -1514,7 +1530,6 @@ class ContractContributionPlanDetails(object):
 
                 print("=======>last_date_covered : ", last_date_covered)
                 print("=======>expiry_date : ", expiry_date)
-            
 
             logger.info(
                 f"create_contract_details_policies : AU : last_date_covered : {last_date_covered}"
@@ -1568,7 +1583,7 @@ class ContractContributionPlanDetails(object):
 
         if check_already_insuree_policy:
             return last_date_covered
-        
+
         return last_date_covered + relativedelta(months=3)
 
     @check_authentication
