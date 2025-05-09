@@ -607,12 +607,55 @@ def re_evaluate_contract_details(contract_id, user, core_username):
     )
 
     amount_due = contract_contribution_plan_details["total_amount"]
-    logger.info(f"......................on_contract_approve_signal : amount_due = {amount_due}")
+    logger.info(f"===> on_contract_approve_signal : amount_due = {amount_due}")
     if isinstance(amount_due, str):
         amount_due = float(amount_due)
     rounded_amount = round(amount_due)
     contract.amount_notified = rounded_amount
     contract.save(username=core_username)
+
+    if contract.use_bundle_contribution_plan_amount and rounded_amount > 0:
+        logger.info("====> contract.use_bundle_contribution_plan_amount is True")
+        update_forfait_rule(contract.id, rounded_amount, core_username)
+
+
+def update_forfait_rule(contract_id, rounded_amount, core_username):
+    from contract.models import ContractDetails
+
+    print(f"====> contract_id: {contract_id}")
+
+    contract_details_to_update = ContractDetails.objects.filter(
+        contract_id=contract_id, is_confirmed=True, is_deleted=False
+    )
+
+    if not contract_details_to_update:
+        logger.info("=====> No contract details to update")
+        return
+
+    forfait_total = 0
+
+    total_contract_detail = len(contract_details_to_update)
+
+    forfait_total = rounded_amount / total_contract_detail
+
+    print(f"====> forfait_total: {forfait_total}")
+
+    for contract_detail in contract_details_to_update:
+        try:
+            print(f"====> contract_detail: {contract_detail}")
+            contract_detail.json_ext = {
+                "calculation_rule": {"rate": 0, "income": 0},
+                "forfait_rule": {
+                    "total": round(forfait_total),
+                    "employerContribution": 0,
+                    "salaryShare": 0,
+                },
+            }
+            contract_detail.save(username=core_username)
+        except Exception as e:
+            logger.error(f"====> Error updating contract detail: {e}")
+
+    logger.info(f"====> contract_details_to_update: {contract_details_to_update}")
 
 
 def update_salary(parsed_json, new_income):

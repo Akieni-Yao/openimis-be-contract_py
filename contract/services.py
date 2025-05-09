@@ -286,6 +286,8 @@ class Contract(object):
                     if rounded_total_amount > 0:
                         total_contract_detail = len(contract_details_to_update)
                         forfait_total = rounded_total_amount / total_contract_detail
+                        
+                    print(f"============================> forfait_total {forfait_total}")
 
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
