@@ -77,6 +77,7 @@ class ContractDetailsGQLType(DjangoObjectType):
 
     def resolve_custom_field(self, info):
         try:
+            print(f"============================> resolve custom field self {self}")
             cpb = self.contribution_plan_bundle
             cpbd = ContributionPlanBundleDetails.objects.filter(
                 contribution_plan_bundle=cpb,
@@ -85,8 +86,18 @@ class ContractDetailsGQLType(DjangoObjectType):
             conti_plan = cpbd.contribution_plan if cpbd else None
             ercp = 0
             eecp = 0
+            
+            # get forfait rule from json_ext
+            json_ext = self.json_ext if self.json_ext else None
+            if json_ext:
+                forfait_rule = json_ext.get('forfait_rule', None)
+                print(f"============================> forfait_rule {forfait_rule}")
+                if forfait_rule:
+                    return forfait_rule
+                
             if conti_plan and conti_plan.json_ext:
                 json_data = conti_plan.json_ext
+
                 calculation_rule = json_data.get('calculation_rule')
                 if calculation_rule:
                     ercp = float(calculation_rule.get(
