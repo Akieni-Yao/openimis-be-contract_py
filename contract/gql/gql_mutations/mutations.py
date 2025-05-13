@@ -1,22 +1,24 @@
 import logging
 
-# from contract.views import re_evaluate_contract_details
-from contract.views import re_evaluate_contract_details, update_salary
 from core import TimeUtils
 from core.constants import CONTRACT_CREATION_NT
+from core.gql.gql_mutations import ObjectNotExistException
 from core.notification_service import create_camu_notification
 from core.schema import OpenIMISMutation
-from core.gql.gql_mutations import ObjectNotExistException
-from contract.services import (
-    Contract as ContractService,
-    ContractDetails as ContractDetailsService,
-    ContractToInvoiceService,
-)
-from contract.models import Contract, ContractDetails, ContractMutation
-from contract.apps import ContractConfig
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
+from rest_framework.response import Response
+
+from contract.apps import ContractConfig
 from contract.erp_integrations import erp_submit_contract
+from contract.models import Contract, ContractDetails, ContractMutation
+from contract.services import Contract as ContractService
+from contract.services import ContractDetails as ContractDetailsService
+from contract.services import ContractToInvoiceService
+from contract.tasks import create_contract_async
+
+# from contract.views import re_evaluate_contract_details
+from contract.views import re_evaluate_contract_details, update_salary
 
 logger = logging.getLogger(__name__)
 
@@ -42,22 +44,19 @@ class ContractCreateMutationMixin:
             data.pop("client_mutation_id")
         if "client_mutation_label" in data:
             data.pop("client_mutation_label")
-        output = cls.create_contract(user=user, contract=data)
-        print(f"---------------------------output: {output}")
-        if output["success"]:
-            contract = Contract.objects.get(id=output["data"]["id"])
-            try:
-                create_camu_notification(CONTRACT_CREATION_NT, contract)
-                logger.info("Sent Notification.")
-            except Exception as e:
-                logger.error(f"Failed to call send notification: {e}")
-            ContractMutation.object_mutated(
-                user, client_mutation_id=client_mutation_id, contract=contract
-            )
-            return None
-        else:
-            print(f"Error! - {output['message']}: {output['detail']}")
-            raise Exception(f"Error! {output['detail']}")
+
+        # Start the async task
+        create_contract_async.delay(
+            user_id=user.id,
+            contract_data=data,
+            client_mutation_id=client_mutation_id
+        )
+
+        # Return task ID for tracking
+        return Response({
+            "success": True,
+            "message": "Contract creation started"
+        })
 
     @classmethod
     def create_contract(cls, user, contract):
@@ -183,7 +182,8 @@ class ContractDetailsUpdateMutationMixin:
             logger.info(
                 "================= ContractDetailsUpdateMutationMixin contract_details saved"
             )
-            re_evaluate_contract_details(data["contract_id"], user, user.username)
+            re_evaluate_contract_details(
+                data["contract_id"], user, user.username)
             return None
         except Exception as e:
             logger.error(f"Error updating contract details: {e}")
@@ -256,7 +256,8 @@ class ContractDetailsCreateMutationMixin:
 
             contract_details.is_new_insuree = True
             contract_details.save(username=user.username)
-            re_evaluate_contract_details(data["contract_id"], user, user.username)
+            re_evaluate_contract_details(
+                data["contract_id"], user, user.username)
             return None
         except Exception as e:
             logger.error(f"Error creating contract details: {e}")

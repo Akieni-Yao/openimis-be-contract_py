@@ -3,8 +3,6 @@ import json
 import logging
 
 import pandas as pd
-from contract.models import Contract, ContractDetails
-from contract.utils import create_new_insuree_and_add_contract_details, custom_round
 from contribution_plan.models import ContributionPlanBundleDetails
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
@@ -16,6 +14,9 @@ from policyholder.models import (
 )
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+
+from contract.models import Contract, ContractDetails
+from contract.utils import create_new_insuree_and_add_contract_details, custom_round
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,8 @@ def get_contract_custom_field_data(detail):
         json_data = phn_json.json_ext
         ei = float(json_data.get("calculation_rule", {}).get("income", 0.0))
 
-    employer_contribution = (ei * ercp / 100) if ercp and ei is not None else 0.0
+    employer_contribution = (
+        ei * ercp / 100) if ercp and ei is not None else 0.0
     salary_share = (ei * eecp / 100) if eecp and ei is not None else 0.0
     total = salary_share + employer_contribution
 
@@ -282,7 +284,8 @@ def update_contract_salaries(request, contract_id):
     cpb = None
     enrolment_type = None
 
-    logger.info("======================================= update contract salaries")
+    logger.info(
+        "======================================= update contract salaries")
 
     if not policy_holder:
         return Response(
@@ -303,7 +306,8 @@ def update_contract_salaries(request, contract_id):
         logger.debug("Reading the uploaded Excel file")
         df = pd.read_excel(file)
         df.columns = [col.strip() for col in df.columns]
-        logger.debug("Excel file read successfully with columns: %s", df.columns)
+        logger.debug(
+            "Excel file read successfully with columns: %s", df.columns)
 
         errors = []
         logger.debug("Starting import process for %s lines", len(df))
@@ -322,7 +326,8 @@ def update_contract_salaries(request, contract_id):
                 contract_id=contract_id, is_deleted=False
             )
             logger.debug(
-                "Fetched %s existing contract details", len(exist_contract_details)
+                "Fetched %s existing contract details", len(
+                    exist_contract_details)
             )
 
             # Index existing contract details by chf_id for quick lookup
@@ -400,7 +405,8 @@ def update_contract_salaries(request, contract_id):
                     f"======================== contract.use_bundle_contribution_plan_amount {contract.use_bundle_contribution_plan_amount}"
                 )
 
-                logger.info(f"========================= gross_salary {gross_salary}")
+                logger.info(
+                    f"========================= gross_salary {gross_salary}")
                 logger.info(
                     f"========================= new_gross_salary {new_gross_salary}"
                 )
@@ -485,14 +491,17 @@ def update_contract_salaries(request, contract_id):
 
                         total_salaries_updated += 1
                         status = "Success"
-                        logger.info("Successfully updated salary for chf_id %s", chf_id)
+                        logger.info(
+                            "Successfully updated salary for chf_id %s", chf_id)
                     else:
                         status = "No Change"
-                        logger.info("No change in salary for chf_id %s", chf_id)
+                        logger.info(
+                            "No change in salary for chf_id %s", chf_id)
                 else:
                     total_validation_errors += 1
                     status = "Error: Not Found"
-                    logger.warning("No contract detail found for chf_id %s", chf_id)
+                    logger.warning(
+                        "No contract detail found for chf_id %s", chf_id)
 
                 # Append the current line data with status to processed_data for output
                 line_data = line.to_dict()
@@ -556,19 +565,21 @@ def update_contract_salaries(request, contract_id):
         else:
             # Construct error message
             error_message = f"{total_validation_errors} entries had errors."
-            logger.warning("Import process completed with errors: %s", error_message)
+            logger.warning(
+                "Import process completed with errors: %s", error_message)
             return Response({"success": False, "message": error_message}, status=400)
 
     except Exception as e:
         logger.error(
-            "An unexpected error occurred during the import process: %s", str(e)
+            "An unexpected error occurred during the import process: %s", str(
+                e)
         )
         return Response({"success": False, "error": str(e)}, status=500)
 
 
 def re_evaluate_contract_details(contract_id, user, core_username):
-    from contract.services import Contract as ContractService
     from contract.models import ContractDetails
+    from contract.services import Contract as ContractService
 
     contract_service = ContractService(user=user)
     contract = Contract.objects.filter(id=contract_id).first()
@@ -615,7 +626,8 @@ def re_evaluate_contract_details(contract_id, user, core_username):
     contract.save(username=core_username)
 
     if contract.use_bundle_contribution_plan_amount and rounded_amount > 0:
-        logger.info("====> contract.use_bundle_contribution_plan_amount is True")
+        logger.info(
+            "====> contract.use_bundle_contribution_plan_amount is True")
         update_forfait_rule(contract.id, rounded_amount, core_username)
 
 
@@ -655,7 +667,8 @@ def update_forfait_rule(contract_id, rounded_amount, core_username):
         except Exception as e:
             logger.error(f"====> Error updating contract detail: {e}")
 
-    logger.info(f"====> contract_details_to_update: {contract_details_to_update}")
+    logger.info(
+        f"====> contract_details_to_update: {contract_details_to_update}")
 
 
 def update_salary(parsed_json, new_income):
