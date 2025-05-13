@@ -61,6 +61,9 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
 
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
+            Contract.objects.filter(id=contract.id).update(
+                process_status=Contract.ProcessStatus.CREATED
+            )
 
             # Send notification
             try:

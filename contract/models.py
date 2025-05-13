@@ -1,14 +1,15 @@
 import uuid
 
-from contribution_plan.models import ContributionPlanBundle, ContributionPlan
+from contribution.models import Premium
+from contribution_plan.models import ContributionPlan, ContributionPlanBundle
+from core import fields
+from core import models as core_models
 from django.conf import settings
 from django.db import models
-from core import models as core_models, fields
 from graphql import ResolveInfo
-from policy.models import Policy
-from contribution.models import Premium
-from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 from insuree.models import Insuree
+from policy.models import Policy
+from policyholder.models import PolicyHolder, PolicyHolderContributionPlan
 
 
 class ContractManager(models.Manager):
@@ -21,6 +22,14 @@ class ContractManager(models.Manager):
 
 
 class Contract(core_models.HistoryBusinessModel):
+    class ProcessStatus(models.TextChoices):
+        PROCESSING = "processing", "Processing"
+        CREATED = "created", "Created"
+        UPLOADING = "uploading", "Uploading"
+        UPLOADED = "uploaded", "Uploaded"
+        FAILED_TO_CREATE = "failed_to_create", "Failed to Create"
+        FAILED_TO_UPLOAD = "failed_to_upload", "Failed to Upload"
+
     code = models.CharField(db_column="Code", max_length=64, null=False)
     policy_holder = models.ForeignKey(
         PolicyHolder,
@@ -35,7 +44,8 @@ class Contract(core_models.HistoryBusinessModel):
     amount_rectified = models.FloatField(
         db_column="AmountRectified", blank=True, null=True
     )
-    amount_due = models.FloatField(db_column="AmountDue", blank=True, null=True)
+    amount_due = models.FloatField(
+        db_column="AmountDue", blank=True, null=True)
     date_approved = fields.DateTimeField(
         db_column="DateApproved", blank=True, null=True
     )
@@ -50,8 +60,10 @@ class Contract(core_models.HistoryBusinessModel):
         db_column="Amendment", blank=False, null=False, default=0
     )
 
-    penalty_raised = models.BooleanField(db_column="PenaltyRaised", default=False)
-    penalty_raised_date = fields.DateField(db_column="PenaltyRaisedDate", null=True)
+    penalty_raised = models.BooleanField(
+        db_column="PenaltyRaised", default=False)
+    penalty_raised_date = fields.DateField(
+        db_column="PenaltyRaisedDate", null=True)
     # penalty_amount = models.FloatField(db_column='PenaltyAmount', null=True)
     # penalty_paid = models.BooleanField(db_column='PenaltyPaid', null=True)
     # penalty_paid_date = fields.DateField(db_column='PenaltyPaidDate', null=True)
@@ -80,6 +92,12 @@ class Contract(core_models.HistoryBusinessModel):
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
     use_bundle_contribution_plan_amount = models.BooleanField(default=False)
+    process_status = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=ProcessStatus.choices,
+    )
 
     objects = ContractManager()
 
@@ -145,7 +163,8 @@ class ContractDetails(core_models.HistoryModel):
         on_delete=models.deletion.DO_NOTHING,
     )
 
-    json_param = models.JSONField(db_column="Json_param", blank=True, null=True)
+    json_param = models.JSONField(
+        db_column="Json_param", blank=True, null=True)
 
     objects = ContractDetailsManager()
 
@@ -220,7 +239,8 @@ class ContractContributionPlanDetails(core_models.HistoryBusinessModel):
 
 
 class ContractMutation(core_models.UUIDModel, core_models.ObjectMutation):
-    contract = models.ForeignKey(Contract, models.DO_NOTHING, related_name="mutations")
+    contract = models.ForeignKey(
+        Contract, models.DO_NOTHING, related_name="mutations")
     mutation = models.ForeignKey(
         core_models.MutationLog, models.DO_NOTHING, related_name="contracts"
     )

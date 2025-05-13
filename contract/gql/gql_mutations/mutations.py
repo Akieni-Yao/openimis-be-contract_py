@@ -52,7 +52,6 @@ class ContractCreateMutationMixin:
             client_mutation_id=client_mutation_id
         )
 
-        # Return task ID for tracking
         return Response({
             "success": True,
             "message": "Contract creation started"
