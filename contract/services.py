@@ -229,7 +229,7 @@ class Contract(object):
 
             c = ContractModel(**contract)
             c.state = ContractModel.STATE_DRAFT
-            c.process_status = ContractModel.ProcessStatus.PROCESSING
+            # c.process_status = ContractModel.ProcessStatus.PROCESSING
             c.save(username=self.user.username)
             uuid_string = f"{c.id}"
 

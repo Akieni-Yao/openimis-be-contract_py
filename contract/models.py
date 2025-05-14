@@ -92,12 +92,12 @@ class Contract(core_models.HistoryBusinessModel):
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
     use_bundle_contribution_plan_amount = models.BooleanField(default=False)
-    process_status = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-        choices=ProcessStatus.choices,
-    )
+    # process_status = models.CharField(
+    #     max_length=50,
+    #     null=True,
+    #     blank=True,
+    #     choices=ProcessStatus.choices,
+    # )
 
     objects = ContractManager()
 

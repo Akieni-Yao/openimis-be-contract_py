@@ -61,9 +61,9 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
 
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
-            Contract.objects.filter(id=contract.id).update(
-                process_status=Contract.ProcessStatus.CREATED
-            )
+            # Contract.objects.filter(id=contract.id).update(
+            #     process_status=Contract.ProcessStatus.CREATED
+            # )
 
             # Send notification
             try:
@@ -294,10 +294,10 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
                     contract_detail_exclude.save(username=core_username)
 
             # Create output Excel file
-            processed_df = pd.DataFrame(processed_data)
-            processed_df.to_excel(writer, index=False, header=True)
-            writer.save()
-            output.seek(0)
+            # processed_df = pd.DataFrame(processed_data)
+            # processed_df.to_excel(writer, index=False, header=True)
+            # writer.save()
+            # output.seek(0)
 
         # Evaluate contract details if no errors
         if total_validation_errors == 0:
