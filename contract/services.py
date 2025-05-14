@@ -180,40 +180,12 @@ class Contract(object):
                     f"---------------------------policy_holder_insurees: {policy_holder_insurees}"
                 )
 
-                ## Remove Income check to create contract
-                # for policy_holder_insuree in policy_holder_insurees:
-                #     json_ext = policy_holder_insuree.json_ext
-                #     if json_ext:
-                #         calculation_rule = json_ext.get('calculation_rule')
-                #         income = calculation_rule.get('income', )
-                #         if income:
-                #             if calculation_rule:
-                #                 if not income:
-                #                     raise Exception("contract creation failed, without income!")
-                #             else:
-                #                 raise Exception("contract creation failed, without income!")
-                #         else:
-                #             raise Exception("contract creation failed, without income!")
-                #     else:
-                #         raise Exception("contract creation failed, without income!")
-                sanction_exist = PaymentPenaltyAndSanction.objects.filter(
-                    payment__contract__policy_holder=policy_holder,
-                    penalty_type="Sanction",
-                    status__lt=PaymentPenaltyAndSanction.PENALTY_APPROVED,
-                ).first()
-                print(f"---------------------------sanction_exist: {sanction_exist}")
-                if sanction_exist:
-                    logger.debug(
-                        f"====  Contract : create : sanction_exist : {sanction_exist.id}"
-                    )
-                    logger.debug(
-                        "====  Contract : create : contract creation failed, Sanction is not approved!"
-                    )
-                    print(
-                        "====  Contract : create : contract creation failed, Sanction is not approved!"
+                if policy_holder.status != "Approved":
+                    logger.error(
+                        f"====  Contract : create : policy_holder : {policy_holder.id} is not approved!"
                     )
                     raise Exception(
-                        "contract creation failed, Sanction is not approved!"
+                        "contract creation failed, policy holder is not approved!"
                     )
 
             incoming_code = generate_contract_code(
@@ -286,8 +258,10 @@ class Contract(object):
                     if rounded_total_amount > 0:
                         total_contract_detail = len(contract_details_to_update)
                         forfait_total = rounded_total_amount / total_contract_detail
-                        
-                    print(f"============================> forfait_total {forfait_total}")
+
+                    print(
+                        f"============================> forfait_total {forfait_total}"
+                    )
 
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
