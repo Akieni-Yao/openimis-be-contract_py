@@ -46,7 +46,7 @@ class ContractCreateMutationMixin:
             data.pop("client_mutation_label")
 
         # Start the async task
-        create_contract_async.delay(
+        task = create_contract_async.delay(
             user_id=user.id,
             contract_data=data,
             client_mutation_id=client_mutation_id
@@ -54,7 +54,8 @@ class ContractCreateMutationMixin:
 
         return Response({
             "success": True,
-            "message": "Contract creation started"
+            "message": "Contract creation started",
+            "task_id": task.id
         })
 
     @classmethod

@@ -3,10 +3,12 @@ import json
 import logging
 
 import pandas as pd
+from celery.result import AsyncResult
 from contribution_plan.models import ContributionPlanBundleDetails
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from insuree.models import Insuree
+from openIMIS.celery import app
 from policyholder.models import (
     PolicyHolder,
     PolicyHolderContributionPlan,
@@ -274,7 +276,7 @@ def update_contract_salaries(request, contract_id):
 
         # Call the async task
         from contract.tasks import update_contract_salaries_async
-        update_contract_salaries_async.delay(
+        task = update_contract_salaries_async.delay(
             str(user.id),
             str(contract_id),
             file_content
@@ -283,6 +285,7 @@ def update_contract_salaries(request, contract_id):
         return JsonResponse({
             "success": True,
             "message": "Contract salary update has been queued for processing",
+            "task_id": task.id
         })
 
     except Exception as e:
@@ -418,3 +421,15 @@ def update_salary(parsed_json, new_income):
     except Exception as e:
         logger.error("An unexpected error occurred: %s", e)
         return None
+
+
+@api_view(["GET"])
+def task_status(request, task_id):
+    result = AsyncResult(task_id, app=app)
+    data = {
+        "task_id": task_id,
+        "status": result.status,
+        "ready": result.ready(),
+        "successful": result.successful(),
+    }
+    return JsonResponse(data)

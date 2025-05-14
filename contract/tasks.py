@@ -1,10 +1,11 @@
 import logging
 
 from celery import shared_task
+from celery_progress.backend import ProgressRecorder
 from core.constants import CONTRACT_CREATION_NT
 from core.models import User
 from core.notification_service import create_camu_notification
-from rest_framework.response import Response
+from django.http import JsonResponse
 
 from contract.models import Contract, ContractContributionPlanDetails, ContractMutation
 from contract.services import Contract as ContractService
@@ -75,22 +76,22 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
                     user, client_mutation_id=client_mutation_id, contract=contract
                 )
 
-            return Response({
+            return {
                 "success": True,
                 "message": "Contract created successfully"
-            })
+            }
         else:
-            return Response({
+            return {
                 "success": False,
                 "message": output.get("message", "Unknown error"),
-            })
+            }
 
     except Exception as e:
         logger.error(f"Error in create_contract_async: {str(e)}")
-        return Response({
+        return {
             "success": False,
             "message": "Error creating contract",
-        })
+        }
 
 
 @shared_task
@@ -120,6 +121,8 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
         )
 
         logger = logging.getLogger(__name__)
+        # progress_recorder = ProgressRecorder()
+
         # Get user
         user = User.objects.get(id=user_id)
         core_username = user.username
@@ -149,21 +152,24 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
 
         # Get contribution plan bundle
         ph_cpb = PolicyHolderContributionPlan.objects.filter(
-            policy_holder=policy_holder, is_deleted=False
-        ).first()
+            policy_holder=policy_holder, is_deleted=False).first()
         cpb = ph_cpb.contribution_plan_bundle if ph_cpb else None
         enrolment_type = cpb.name if cpb else None
 
         # set Process_status to processing_uploaded_data supposing that \
         # the file is uploaded and the data is being processed
-        contract.process_status = Contract.ProcessStatus.\
-            PROCESSING_UPLOADED_DATA
+        contract.process_status = Contract.ProcessStatus.PROCESSING_UPLOADED_DATA
         contract.save(username=core_username)
 
         # Convert file data to pandas DataFrame
         file_content = ContentFile(file_data)
         df = pd.read_excel(file_content)
         df.columns = [col.strip() for col in df.columns]
+
+        # Set total number of rows for progress tracking
+        # total_rows = len(df)
+        # progress_recorder.set_progress(
+        #     0, total_rows, "Starting salary updates...")
 
         # Output data preparation
         output = io.BytesIO()
@@ -207,7 +213,6 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
                     )
                     if not chf_id:
                         continue
-                    print(f"{'2*'*30}")
 
                     # Refresh contract details after new insuree creation
                     exist_contract_details = ContractDetails.objects.filter(
@@ -278,6 +283,13 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
                 line_data["Status"] = status
                 processed_data.append(line_data)
 
+                # Update progress after each row is processed
+                # progress_recorder.set_progress(
+                #     index + 1,
+                #     total_rows,
+                #     f"Processing row {index + 1} of {total_rows}"
+                # )
+
             # Update confirmation status for contract details
             contract_details = ContractDetails.objects.filter(
                 contract_id=contract_id,
@@ -310,21 +322,21 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
         if total_validation_errors == 0:
             re_evaluate_contract_details(contract_id, user, core_username)
 
-            from django.conf import settings
-            from django.core.mail import EmailMessage
+            # from django.conf import settings
+            # from django.core.mail import EmailMessage
 
-            policy_holder_email = contract.policy_holder.email
+            # policy_holder_email = contract.policy_holder.email
 
-            email = EmailMessage(
-                subject=f'Résultats de la mise à jour des salaires du contrat {contract.id}',
-                body='Veuillez trouver joint le résultat de la mise à jour des salaires',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[policy_holder_email],
-            )
-            email.attach('salary_update_results.xlsx', output.getvalue(
-            ), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            email.send()
-            print(f'Email sent to {policy_holder_email} with excel file')
+            # email = EmailMessage(
+            #     subject=f'Résultats de la mise à jour des salaires du contrat {contract.id}',
+            #     body='Veuillez trouver joint le résultat de la mise à jour des salaires',
+            #     from_email=settings.DEFAULT_FROM_EMAIL,
+            #     to=[policy_holder_email],
+            # )
+            # email.attach('salary_update_results.xlsx', output.getvalue(
+            # ), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            # email.send()
+            # print(f'Email sent to {policy_holder_email} with excel file')
             return {
                 "success": True,
                 "message": None
@@ -343,9 +355,9 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
         )
         # set Process_status to failed_to_upload supposing that \
         # the processing failed
-
-        contract.process_status = Contract.ProcessStatus.FAILED_TO_UPLOAD
-        contract.save(username=core_username)
+        Contract.objects.filter(id=contract_id).update(
+            process_status=Contract.ProcessStatus.FAILED_TO_UPLOAD
+        )
         return {
             "success": False,
             "message": str(e)
