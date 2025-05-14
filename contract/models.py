@@ -27,6 +27,7 @@ class Contract(core_models.HistoryBusinessModel):
         CREATED = "created", "Created"
         UPLOADING = "uploading", "Uploading"
         UPLOADED = "uploaded", "Uploaded"
+        PROCESSING_UPLOADED_DATA = "processing_uploaded_data", "Processing Uploaded Data"
         FAILED_TO_CREATE = "failed_to_create", "Failed to Create"
         FAILED_TO_UPLOAD = "failed_to_upload", "Failed to Upload"
 
@@ -92,12 +93,12 @@ class Contract(core_models.HistoryBusinessModel):
 
     # total_amount = models.FloatField(db_column='TotalAmount', null=True)
     use_bundle_contribution_plan_amount = models.BooleanField(default=False)
-    # process_status = models.CharField(
-    #     max_length=50,
-    #     null=True,
-    #     blank=True,
-    #     choices=ProcessStatus.choices,
-    # )
+    process_status = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=ProcessStatus.choices,
+    )
 
     objects = ContractManager()
 

@@ -61,9 +61,6 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
 
         if output["success"]:
             contract = Contract.objects.get(id=output["data"]["id"])
-            # Contract.objects.filter(id=contract.id).update(
-            #     process_status=Contract.ProcessStatus.CREATED
-            # )
 
             # Send notification
             try:
@@ -132,10 +129,14 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
         total_lines = 0
         total_salaries_updated = 0
         total_validation_errors = 0
-        print(f"{'*'*30}")
 
         # Get contract and policy holder
         contract = Contract.objects.filter(id=contract_id).first()
+
+        # set Process_status to uploaded supposing that the file is uploaded
+        contract.process_status = Contract.ProcessStatus.UPLOADED
+        contract.save(username=core_username)
+
         policy_holder = PolicyHolder.objects.filter(
             code=contract.policy_holder.code
         ).first()
@@ -152,6 +153,12 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
         ).first()
         cpb = ph_cpb.contribution_plan_bundle if ph_cpb else None
         enrolment_type = cpb.name if cpb else None
+
+        # set Process_status to processing_uploaded_data supposing that \
+        # the file is uploaded and the data is being processed
+        contract.process_status = Contract.ProcessStatus.\
+            PROCESSING_UPLOADED_DATA
+        contract.save(username=core_username)
 
         # Convert file data to pandas DataFrame
         file_content = ContentFile(file_data)
@@ -294,14 +301,30 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
                     contract_detail_exclude.save(username=core_username)
 
             # Create output Excel file
-            # processed_df = pd.DataFrame(processed_data)
-            # processed_df.to_excel(writer, index=False, header=True)
-            # writer.save()
-            # output.seek(0)
+            processed_df = pd.DataFrame(processed_data)
+            processed_df.to_excel(writer, index=False, header=True)
+            writer.save()
+            output.seek(0)
 
         # Evaluate contract details if no errors
         if total_validation_errors == 0:
             re_evaluate_contract_details(contract_id, user, core_username)
+
+            from django.conf import settings
+            from django.core.mail import EmailMessage
+
+            policy_holder_email = contract.policy_holder.email
+
+            email = EmailMessage(
+                subject=f'Résultats de la mise à jour des salaires du contrat {contract.id}',
+                body='Veuillez trouver joint le résultat de la mise à jour des salaires',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[policy_holder_email],
+            )
+            email.attach('salary_update_results.xlsx', output.getvalue(
+            ), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            email.send()
+            print(f'Email sent to {policy_holder_email} with excel file')
             return {
                 "success": True,
                 "message": None
@@ -318,6 +341,11 @@ def update_contract_salaries_async(user_id, contract_id, file_data):
             "An unexpected error occurred during the import process: %s", str(
                 e)
         )
+        # set Process_status to failed_to_upload supposing that \
+        # the processing failed
+
+        contract.process_status = Contract.ProcessStatus.FAILED_TO_UPLOAD
+        contract.save(username=core_username)
         return {
             "success": False,
             "message": str(e)

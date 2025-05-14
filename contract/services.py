@@ -1,18 +1,11 @@
+import calendar
 import json
 import logging
 from copy import copy
 from datetime import datetime
 from decimal import Decimal
-import calendar
 
 from calculation.services import run_calculation_rules
-from contract.apps import ContractConfig
-from contract.models import Contract as ContractModel, ContractPolicy
-from contract.models import (
-    ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
-)
-from contract.models import ContractDetails as ContractDetailsModel
-from contract.signals import signal_contract, signal_contract_approve
 from contribution.models import Premium
 from contribution_plan.models import ContributionPlan, ContributionPlanBundleDetails
 from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
@@ -36,6 +29,15 @@ from payment.payment_utils import (
 from payment.services import update_or_create_payment
 from policy.models import Policy
 from policyholder.models import PolicyHolder, PolicyHolderInsuree
+
+from contract.apps import ContractConfig
+from contract.models import Contract as ContractModel
+from contract.models import (
+    ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
+)
+from contract.models import ContractDetails as ContractDetailsModel
+from contract.models import ContractPolicy
+from contract.signals import signal_contract, signal_contract_approve
 from contract.utils import get_due_payment_date
 
 from .config import get_message_counter_contract
@@ -229,7 +231,8 @@ class Contract(object):
 
             c = ContractModel(**contract)
             c.state = ContractModel.STATE_DRAFT
-            # c.process_status = ContractModel.ProcessStatus.PROCESSING
+            # set the process status to processing
+            c.process_status = ContractModel.ProcessStatus.PROCESSING
             c.save(username=self.user.username)
             uuid_string = f"{c.id}"
 
@@ -323,6 +326,8 @@ class Contract(object):
                 message=f"create contract status {historical_record.state}",
             )
             print(f"---------------------------c-2: {c}")
+            # set the process status to created supposing that all have been done
+            c.process_status = ContractModel.ProcessStatus.CREATED
             c.save(username=self.user.username)
             dict_representation = model_to_dict(c)
             dict_representation["id"], dict_representation["uuid"] = (
@@ -333,6 +338,9 @@ class Contract(object):
                 f"---------------------------dict_representation: {dict_representation}"
             )
         except Exception as exc:
+            # set the process status to failed_to_create
+            c.process_status = ContractModel.ProcessStatus.FAILED_TO_CREATE
+            c.save(username=self.user.username)
             return _output_exception(
                 model_name="Contract", method="create", exception=exc
             )
@@ -1939,6 +1947,7 @@ class ContractContributionPlanDetails(object):
 # This function is used in payment module
 def get_policy_status(insuree, policy_holder):
     from policyholder.models import PolicyHolderContributionPlan
+
     from contract.models import InsureeWaitingPeriod
 
     logger.info("get_policy_status : --------- Start ---------")
