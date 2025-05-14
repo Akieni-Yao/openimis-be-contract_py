@@ -180,6 +180,10 @@ class Contract(object):
                     f"---------------------------policy_holder_insurees: {policy_holder_insurees}"
                 )
 
+                logger.info(
+                    f"====  Contract : create : policy_holder : {policy_holder.id} : {policy_holder.status}"
+                )
+
                 if policy_holder.status != "Approved":
                     logger.error(
                         f"====  Contract : create : policy_holder : {policy_holder.id} is not approved!"
