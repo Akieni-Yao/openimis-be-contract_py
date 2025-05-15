@@ -27,6 +27,7 @@ from contract.gql.gql_mutations.input_types import (
 from contract.gql.gql_types import ContractGQLType
 from contract.models import Contract
 from contract.tasks import (
+    approve_contract_async,
     approve_contracts,
     counter_contracts,
     create_contract_async,
@@ -159,13 +160,56 @@ class SubmitContractMutation(ContractSubmitMutationMixin, BaseMutation):
         pass
 
 
-class ApproveContractMutation(ContractApproveMutationMixin, BaseMutation):
-    _mutation_class = "ApproveContractMutation"
-    _mutation_module = "contract"
-    _model = Contract
+class ApproveContractMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    message = graphene.String()
+    task_id = graphene.String()
 
-    class Input(ContractApproveInputType):
-        pass
+    class Arguments:
+        id = graphene.UUID(required=True)
+        client_mutation_id = graphene.String(required=False)
+        client_mutation_label = graphene.String(required=False)
+
+    @classmethod
+    def mutate(cls, root, info, **kwargs):
+        from django.contrib.auth.models import AnonymousUser
+        from graphql import GraphQLError
+
+        from contract.apps import ContractConfig
+
+        user = info.context.user
+
+        if (
+            isinstance(user, AnonymousUser)
+            or not user.id
+            or not user.has_perms(
+                ContractConfig
+                .gql_mutation_approve_ask_for_change_contract_perms
+            )
+        ):
+            raise GraphQLError("mutation.authentication_required")
+
+        client_mutation_id = kwargs.pop("client_mutation_id", None)
+        kwargs.pop("client_mutation_label", None)
+
+        try:
+            task = approve_contract_async.delay(
+                user_id=user.id,
+                contract_id=kwargs["id"],
+                client_mutation_id=client_mutation_id
+            )
+
+            return ApproveContractMutation(
+                success=True,
+                message="Contract approval started",
+                task_id=task.id,
+            )
+        except Exception as e:
+            return ApproveContractMutation(
+                success=False,
+                message=f"An error occurred: {str(e)}",
+                task_id=None,
+            )
 
 
 class ApproveContractBulkMutation(ContractApproveMutationMixin, BaseMutation):

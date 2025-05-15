@@ -213,7 +213,7 @@ class Contract(object):
                         "====  Contract : create : contract creation failed, Sanction is not approved!"
                     )
                     print(
-                        "====  Contract : create : contract creation failed, Sanction is not approved!"
+                        "====  Contract : create : contract creation failed, Sanction is not approved!")
                 logger.info(
                     f"====  Contract : create : policy_holder : {policy_holder.id} : {policy_holder.status}"
                 )
@@ -346,8 +346,8 @@ class Contract(object):
             )
         except Exception as exc:
             # set the process status to failed_to_create
-            c.process_status = ContractModel.ProcessStatus.FAILED_TO_CREATE
-            c.save(username=self.user.username)
+            # c.process_status = ContractModel.ProcessStatus.FAILED_TO_CREATE
+            # c.save(username=self.user.username)
             return _output_exception(
                 model_name="Contract", method="create", exception=exc
             )
