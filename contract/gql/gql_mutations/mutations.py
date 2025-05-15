@@ -52,11 +52,11 @@ class ContractCreateMutationMixin:
             client_mutation_id=client_mutation_id
         )
 
-        return Response({
+        return {
             "success": True,
             "message": "Contract creation started",
             "task_id": task.id
-        })
+        }
 
     @classmethod
     def create_contract(cls, user, contract):

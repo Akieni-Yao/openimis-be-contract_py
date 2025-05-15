@@ -76,22 +76,13 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
                     user, client_mutation_id=client_mutation_id, contract=contract
                 )
 
-            return {
-                "success": True,
-                "message": "Contract created successfully"
-            }
+            return None
         else:
-            return {
-                "success": False,
-                "message": output.get("message", "Unknown error"),
-            }
+            raise Exception(f"Error! {output['detail']}")
 
     except Exception as e:
         logger.error(f"Error in create_contract_async: {str(e)}")
-        return {
-            "success": False,
-            "message": "Error creating contract",
-        }
+        raise Exception(f"Error! {output['detail']}")
 
 
 @shared_task
