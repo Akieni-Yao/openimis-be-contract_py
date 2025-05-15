@@ -1,18 +1,11 @@
+import calendar
 import json
 import logging
 from copy import copy
 from datetime import datetime
 from decimal import Decimal
-import calendar
 
 from calculation.services import run_calculation_rules
-from contract.apps import ContractConfig
-from contract.models import Contract as ContractModel, ContractPolicy
-from contract.models import (
-    ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
-)
-from contract.models import ContractDetails as ContractDetailsModel
-from contract.signals import signal_contract, signal_contract_approve
 from contribution.models import Premium
 from contribution_plan.models import ContributionPlan, ContributionPlanBundleDetails
 from core.constants import CONTRACT_UPDATE_NT, PAYMENT_CREATION_NT
@@ -36,6 +29,15 @@ from payment.payment_utils import (
 from payment.services import update_or_create_payment
 from policy.models import Policy
 from policyholder.models import PolicyHolder, PolicyHolderInsuree
+
+from contract.apps import ContractConfig
+from contract.models import Contract as ContractModel
+from contract.models import (
+    ContractContributionPlanDetails as ContractContributionPlanDetailsModel,
+)
+from contract.models import ContractDetails as ContractDetailsModel
+from contract.models import ContractPolicy
+from contract.signals import signal_contract, signal_contract_approve
 from contract.utils import get_due_payment_date
 
 from .config import get_message_counter_contract
@@ -180,7 +182,7 @@ class Contract(object):
                     f"---------------------------policy_holder_insurees: {policy_holder_insurees}"
                 )
 
-                ## Remove Income check to create contract
+                # Remove Income check to create contract
                 # for policy_holder_insuree in policy_holder_insurees:
                 #     json_ext = policy_holder_insuree.json_ext
                 #     if json_ext:
@@ -201,7 +203,8 @@ class Contract(object):
                     penalty_type="Sanction",
                     status__lt=PaymentPenaltyAndSanction.PENALTY_APPROVED,
                 ).first()
-                print(f"---------------------------sanction_exist: {sanction_exist}")
+                print(
+                    f"---------------------------sanction_exist: {sanction_exist}")
                 if sanction_exist:
                     logger.debug(
                         f"====  Contract : create : sanction_exist : {sanction_exist.id}"
@@ -211,15 +214,23 @@ class Contract(object):
                     )
                     print(
                         "====  Contract : create : contract creation failed, Sanction is not approved!"
+                logger.info(
+                    f"====  Contract : create : policy_holder : {policy_holder.id} : {policy_holder.status}"
+                )
+
+                if policy_holder.status != "Approved":
+                    logger.error(
+                        f"====  Contract : create : policy_holder : {policy_holder.id} is not approved!"
                     )
                     raise Exception(
-                        "contract creation failed, Sanction is not approved!"
+                        "contract creation failed, policy holder is not approved!"
                     )
 
             incoming_code = generate_contract_code(
                 policy_holder, contract.get("date_valid_from")
             )  # Generate a new unique code
-            contract["code"] = incoming_code  # Set the generated code into the contract
+            # Set the generated code into the contract
+            contract["code"] = incoming_code
             # if check_unique_code(incoming_code):
             #     raise ValidationError(("Contract code %s already exists" % incoming_code))
 
@@ -227,6 +238,8 @@ class Contract(object):
 
             c = ContractModel(**contract)
             c.state = ContractModel.STATE_DRAFT
+            # set the process status to processing
+            c.process_status = ContractModel.ProcessStatus.PROCESSING
             c.save(username=self.user.username)
             uuid_string = f"{c.id}"
 
@@ -263,7 +276,8 @@ class Contract(object):
                 total_amount = self.evaluate_contract_valuation(
                     contract_details_result=result_ph_insuree,
                 )["total_amount"]
-                print(f"---------------------------total_amount: {total_amount}")
+                print(
+                    f"---------------------------total_amount: {total_amount}")
                 if total_amount is not None and total_amount > 0:
                     if isinstance(total_amount, str):
                         try:
@@ -286,8 +300,9 @@ class Contract(object):
                     if rounded_total_amount > 0:
                         total_contract_detail = len(contract_details_to_update)
                         forfait_total = rounded_total_amount / total_contract_detail
-                        
-                    print(f"============================> forfait_total {forfait_total}")
+
+                    print(
+                        f"============================> forfait_total {forfait_total}")
 
                     for contract_detail in contract_details_to_update:
                         contract_detail.is_confirmed = True
@@ -310,13 +325,16 @@ class Contract(object):
 
             print(f"---------------------------c-1: {c}")
             historical_record = c.history.all().last()
-            print(f"---------------------------historical_record: {historical_record}")
+            print(
+                f"---------------------------historical_record: {historical_record}")
             c.json_ext = _save_json_external(
                 user_id=str(historical_record.user_updated.id),
                 datetime=str(historical_record.date_updated),
                 message=f"create contract status {historical_record.state}",
             )
             print(f"---------------------------c-2: {c}")
+            # set the process status to created supposing that all have been done
+            c.process_status = ContractModel.ProcessStatus.CREATED
             c.save(username=self.user.username)
             dict_representation = model_to_dict(c)
             dict_representation["id"], dict_representation["uuid"] = (
@@ -327,6 +345,9 @@ class Contract(object):
                 f"---------------------------dict_representation: {dict_representation}"
             )
         except Exception as exc:
+            # set the process status to failed_to_create
+            c.process_status = ContractModel.ProcessStatus.FAILED_TO_CREATE
+            c.save(username=self.user.username)
             return _output_exception(
                 model_name="Contract", method="create", exception=exc
             )
@@ -356,7 +377,8 @@ class Contract(object):
             not result_contract_valuation
             or result_contract_valuation["success"] is False
         ):
-            logger.error("contract valuation failed %s", str(result_contract_valuation))
+            logger.error("contract valuation failed %s",
+                         str(result_contract_valuation))
             print(
                 "--------------------------contract valuation failed %s",
                 str(result_contract_valuation),
@@ -372,13 +394,15 @@ class Contract(object):
         try:
             # check rights for contract / amendments
             if not (
-                self.user.has_perms(ContractConfig.gql_mutation_update_contract_perms)
+                self.user.has_perms(
+                    ContractConfig.gql_mutation_update_contract_perms)
                 or self.user.has_perms(
                     ContractConfig.gql_mutation_approve_ask_for_change_contract_perms
                 )
             ):
                 raise PermissionError("Unauthorized")
-            updated_contract = ContractModel.objects.filter(id=contract["id"]).first()
+            updated_contract = ContractModel.objects.filter(
+                id=contract["id"]).first()
             # updatable scenario
             if self.__check_rights_by_status(updated_contract.state) == "updatable":
                 if "code" in contract:
@@ -424,7 +448,8 @@ class Contract(object):
     def __update_contract_fields(self, contract_input, updated_contract):
         # get the current policy_holder value
         current_policy_holder_id = updated_contract.policy_holder_id
-        [setattr(updated_contract, key, contract_input[key]) for key in contract_input]
+        [setattr(updated_contract, key, contract_input[key])
+         for key in contract_input]
         # check if PH is set and not changed
         if current_policy_holder_id:
             if "policy_holder" in updated_contract.get_dirty_fields(
@@ -465,10 +490,12 @@ class Contract(object):
                 raise PermissionError("Unauthorized")
 
             contract_id = f"{contract['id']}"
-            contract_to_submit = ContractModel.objects.filter(id=contract_id).first()
+            contract_to_submit = ContractModel.objects.filter(
+                id=contract_id).first()
             contract_details_list = {}
             contract_details_list["data"] = self.__gather_policy_holder_insuree(
-                self.__validate_submission(contract_to_submit=contract_to_submit),
+                self.__validate_submission(
+                    contract_to_submit=contract_to_submit),
                 contract_to_submit.amendment,
                 contract_date_valid_from=None,
             )
@@ -496,7 +523,8 @@ class Contract(object):
                 contract_id,
             )
             try:
-                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_submit)
+                create_camu_notification(
+                    CONTRACT_UPDATE_NT, contract_to_submit)
                 logger.info("Sent Notification.")
             except Exception as e:
                 logger.error(f"Failed to call send notification: {e}")
@@ -509,12 +537,14 @@ class Contract(object):
     def __validate_submission(self, contract_to_submit):
         # check if we have a PolicyHoldes and any ContractDetails
         if not contract_to_submit.policy_holder:
-            raise ContractUpdateError("The contract does not contain PolicyHolder!")
+            raise ContractUpdateError(
+                "The contract does not contain PolicyHolder!")
         contract_details = ContractDetailsModel.objects.filter(
             contract_id=contract_to_submit.id, is_confirmed=True, is_deleted=False
         )
         if contract_details.count() == 0:
-            raise ContractUpdateError("The contract does not contain any insuree!")
+            raise ContractUpdateError(
+                "The contract does not contain any insuree!")
         # variable to check if we have right for submit
         state_right = self.__check_rights_by_status(contract_to_submit.state)
         # check if we can submit
@@ -523,7 +553,8 @@ class Contract(object):
                 "The contract cannot be submitted because of current state!"
             )
         if state_right == "approvable":
-            raise ContractUpdateError("The contract has been already submitted!")
+            raise ContractUpdateError(
+                "The contract has been already submitted!")
         return list(contract_details.values())
 
     def __gather_policy_holder_insuree(
@@ -582,12 +613,15 @@ class Contract(object):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
             logger.info(f"contract {contract['id']}")
-            logger.info(f"contract service approve : contract_id = {contract_id}")
-            contract_to_approve = ContractModel.objects.filter(id=contract_id).first()
+            logger.info(
+                f"contract service approve : contract_id = {contract_id}")
+            contract_to_approve = ContractModel.objects.filter(
+                id=contract_id).first()
             logger.info(
                 f"contract service approve : contract_to_approve = {contract_to_approve.id}"
             )
-            state_right = self.__check_rights_by_status(contract_to_approve.state)
+            state_right = self.__check_rights_by_status(
+                contract_to_approve.state)
             # check if we can submit
             if state_right != "approvable":
                 raise ContractUpdateError(
@@ -656,7 +690,8 @@ class Contract(object):
             )
             logger.info("Payment due date")
             try:
-                create_camu_notification(CONTRACT_UPDATE_NT, contract_to_approve)
+                create_camu_notification(
+                    CONTRACT_UPDATE_NT, contract_to_approve)
                 logger.info("Sent Notification.")
             except Exception as e:
                 logger.error(f"Failed to call send notification: {e}")
@@ -677,9 +712,11 @@ class Contract(object):
             ):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
-            contract_to_counter = ContractModel.objects.filter(id=contract_id).first()
+            contract_to_counter = ContractModel.objects.filter(
+                id=contract_id).first()
             # variable to check if we have right to approve
-            state_right = self.__check_rights_by_status(contract_to_counter.state)
+            state_right = self.__check_rights_by_status(
+                contract_to_counter.state)
             # check if we can submit
             if state_right != "approvable":
                 raise ContractUpdateError(
@@ -715,9 +752,11 @@ class Contract(object):
             ):
                 raise PermissionError("Unauthorized")
             contract_id = f"{contract['id']}"
-            contract_to_amend = ContractModel.objects.filter(id=contract_id).first()
+            contract_to_amend = ContractModel.objects.filter(
+                id=contract_id).first()
             # variable to check if we have right to amend contract
-            state_right = self.__check_rights_by_status(contract_to_amend.state)
+            state_right = self.__check_rights_by_status(
+                contract_to_amend.state)
             # check if we can amend
             if (
                 state_right != "cannot_update"
@@ -808,10 +847,12 @@ class Contract(object):
                 raise PermissionError("Unauthorized")
             from core import datetime, datetimedelta
 
-            contract_to_renew = ContractModel.objects.filter(id=contract["id"]).first()
+            contract_to_renew = ContractModel.objects.filter(
+                id=contract["id"]).first()
             contract_id = contract["id"]
             # block renewing contract not in Updateable or Approvable state
-            state_right = self.__check_rights_by_status(contract_to_renew.state)
+            state_right = self.__check_rights_by_status(
+                contract_to_renew.state)
             # check if we can renew
             if (
                 state_right != "cannot_update"
@@ -835,13 +876,15 @@ class Contract(object):
                 contract_to_renew.date_valid_to + datetimedelta(days=1)
             )
             renewed_contract.date_valid_to = (
-                contract_to_renew.date_valid_to + datetimedelta(months=length_contract)
+                contract_to_renew.date_valid_to +
+                datetimedelta(months=length_contract)
             )
             renewed_contract.state, renewed_contract.version = (
                 ContractModel.STATE_DRAFT,
                 1,
             )
-            renewed_contract.amount_rectified, renewed_contract.amount_due = (0, 0)
+            renewed_contract.amount_rectified, renewed_contract.amount_due = (
+                0, 0)
             renewed_contract.save(username=self.user.username)
             historical_record = renewed_contract.history.all().first()
             renewed_contract.json_ext = _save_json_external(
@@ -874,7 +917,8 @@ class Contract(object):
                 ContractConfig.gql_mutation_delete_contract_perms
             ):
                 raise PermissionError("Unauthorized")
-            contract_to_delete = ContractModel.objects.filter(id=contract["id"]).first()
+            contract_to_delete = ContractModel.objects.filter(
+                id=contract["id"]).first()
             # block deleting contract not in Updateable or Approvable state
             if (
                 self.__check_rights_by_status(contract_to_delete.state)
@@ -913,7 +957,8 @@ class Contract(object):
         if data:
             total_amount = data.get("amount_notified", Decimal(0))
             if total_amount <= 0:
-                logger.warning(f"Negative or zero 'amount_notified': {total_amount}")
+                logger.warning(
+                    f"Negative or zero 'amount_notified': {total_amount}")
             else:
                 logger.info(f"Positive 'amount_notified': {total_amount}")
         else:
@@ -1110,7 +1155,8 @@ class ContractDetails(object):
                             )
 
                             print("policy_start_date : ", policy_start_date)
-                            print("ccpd.policy.expiry_date : ", ccpd.policy.expiry_date)
+                            print("ccpd.policy.expiry_date : ",
+                                  ccpd.policy.expiry_date)
                             print("ccpd.policy.id : ", ccpd.policy.id)
                             print("phi.insuree.id : ", phi.insuree.id)
                             print("phi.id : ", phi.id)
@@ -1127,13 +1173,15 @@ class ContractDetails(object):
                             logger.info(
                                 f"update_from_ph_insuree : phi.insuree.id : {phi.insuree.id}"
                             )
-                            logger.info(f"update_from_ph_insuree : phi.id : {phi.id}")
+                            logger.info(
+                                f"update_from_ph_insuree : phi.id : {phi.id}")
 
                             if ccpd.policy.expiry_date > policy_start_date:
                                 exclude_phi.append(phi.id)
 
                 print("exclude_phi : ", exclude_phi)
-                logger.info(f"update_from_ph_insuree : exclude_phi : {exclude_phi}")
+                logger.info(
+                    f"update_from_ph_insuree : exclude_phi : {exclude_phi}")
                 if len(exclude_phi) > 0:
                     policy_holder_insuree = policy_holder_insuree.exclude(
                         id__in=exclude_phi
@@ -1184,7 +1232,8 @@ class ContractDetails(object):
             ):
                 raise PermissionError("Unauthorized")
             if phi.is_deleted is False and phi.contribution_plan_bundle:
-                updated_contract = ContractModel.objects.get(id=f"{contract['id']}")
+                updated_contract = ContractModel.objects.get(
+                    id=f"{contract['id']}")
                 if updated_contract.state not in [
                     ContractModel.STATE_DRAFT,
                     ContractModel.STATE_REQUEST_FOR_INFORMATION,
@@ -1194,7 +1243,8 @@ class ContractDetails(object):
                         "You cannot update contract by adding insuree - contract not in updatable state!"
                     )
                 if updated_contract.policy_holder is None:
-                    raise ContractUpdateError("There is no policy holder in contract!")
+                    raise ContractUpdateError(
+                        "There is no policy holder in contract!")
                 cd = ContractDetailsModel(
                     **{
                         "contract_id": contract["id"],
@@ -1314,7 +1364,8 @@ class ContractContributionPlanDetails(object):
                 policy_output.append(cur_policy)
 
         for data in missing_coverage:
-            print(f"----------------------- missing_coverage {missing_coverage}")
+            print(
+                f"----------------------- missing_coverage {missing_coverage}")
             logger.info(f"__get_policy : data['start'] : {data['start']}")
             logger.info(f"__get_policy : data['stop'] : {data['stop']}")
             policy_created, last_date_covered = self.create_contract_details_policies(
@@ -1326,9 +1377,11 @@ class ContractContributionPlanDetails(object):
         # now we create new policy
         # @Note: Code commented temporary for CAMU Requirement
         while last_date_covered < date_valid_to:
-            print(f"----------------------- last_date_covered {last_date_covered}")
+            print(
+                f"----------------------- last_date_covered {last_date_covered}")
             print(f"----------------------- date_valid_to {date_valid_to}")
-            logger.info(f"__get_policy : last_date_covered : {last_date_covered}")
+            logger.info(
+                f"__get_policy : last_date_covered : {last_date_covered}")
             logger.info(f"__get_policy : date_valid_to : {date_valid_to}")
             policy_created, last_date_covered = self.create_contract_details_policies(
                 insuree, product, last_date_covered, date_valid_to, ccpd
@@ -1342,7 +1395,8 @@ class ContractContributionPlanDetails(object):
     ):
         # create policy for insuree family
         # TODO Policy with status - new open=32 in policy-be_py module
-        logger.info("create_contract_details_policies : --------- Start ---------")
+        logger.info(
+            "create_contract_details_policies : --------- Start ---------")
         policy_output = []
         print(
             f"------------------------ ContractContributionPlanDetails : create_contract_details_policies : last_date_covered : {last_date_covered}"
@@ -1408,7 +1462,8 @@ class ContractContributionPlanDetails(object):
                 expiry_date = last_date_covered + relativedelta(
                     months=product.insurance_period
                 )
-                expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
+                expiry_date = expiry_date.replace(
+                    day=desired_start_policy_day - 1)
 
             # Changing start date and end date of policy with insurance period 3 as per CAMU Requirement
             if product.insurance_period == 3:
@@ -1444,7 +1499,8 @@ class ContractContributionPlanDetails(object):
                     expiry_date = last_date_covered + relativedelta(
                         months=product.insurance_period + 1
                     )
-                    expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
+                    expiry_date = expiry_date.replace(
+                        day=desired_start_policy_day - 1)
                 else:
                     # desired_month_gap_policy_contract is a gap of policy from contract
                     desired_month_gap_policy_contract = 3
@@ -1465,7 +1521,8 @@ class ContractContributionPlanDetails(object):
                     expiry_date = last_date_covered + relativedelta(
                         months=product.insurance_period
                     )
-                    expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
+                    expiry_date = expiry_date.replace(
+                        day=desired_start_policy_day - 1)
 
             if product.insurance_period == 12:
                 desired_start_policy_day = 6
@@ -1524,7 +1581,8 @@ class ContractContributionPlanDetails(object):
                 #     expiry_date = last_date_covered + relativedelta(
                 # months=months_to_substract)
 
-                expiry_date = expiry_date.replace(day=desired_start_policy_day - 1)
+                expiry_date = expiry_date.replace(
+                    day=desired_start_policy_day - 1)
 
                 last_date_covered = self.__handle_twelve_month_first_policy(
                     insuree, last_date_covered
@@ -1575,7 +1633,8 @@ class ContractContributionPlanDetails(object):
                 policy_holder=policy_holder,
             )
 
-        logger.info("create_contract_details_policies : --------- End ---------")
+        logger.info(
+            "create_contract_details_policies : --------- End ---------")
         return policy_output, last_date_covered
 
     def __handle_twelve_month_first_policy(self, insuree, last_date_covered):
@@ -1632,7 +1691,8 @@ class ContractContributionPlanDetails(object):
                             "policy_id": contract_details["policy_id"],
                         }
                     )
-                    print(f"******--------------------------------- ccpd {ccpd}")
+                    print(
+                        f"******--------------------------------- ccpd {ccpd}")
                     logger.info(f"contract_valuation : ccpd : {ccpd}")
                     # rc - result of calculation
                     calculated_amount = 0
@@ -1665,9 +1725,11 @@ class ContractContributionPlanDetails(object):
                         )
 
                     ccpd_record = model_to_dict(ccpd)
-                    logger.info(f"contract_valuation : ccpd_record : {ccpd_record}")
+                    logger.info(
+                        f"contract_valuation : ccpd_record : {ccpd_record}")
                     ccpd_record["calculated_amount"] = calculated_amount
-                    print(f"***------------------ contract_details {contract_details}")
+                    print(
+                        f"***------------------ contract_details {contract_details}")
                     if contract_contribution_plan_details["save"]:
                         ccpd_list, total_amount, ccpd_record = (
                             self.__append_contract_cpd_to_list(
@@ -1770,7 +1832,8 @@ class ContractContributionPlanDetails(object):
         ccpd.date_valid_from = date_valid_from
 
         # get the last day of the month data_valid_from and transform it to date_valid_to eg if data_valid_from is 01 feb 2025 then date_valid_to should be 28 feb 2025
-        last_day = calendar.monthrange(date_valid_from.year, date_valid_from.month)[1]
+        last_day = calendar.monthrange(
+            date_valid_from.year, date_valid_from.month)[1]
         ccpd.date_valid_to = date_valid_from.replace(day=last_day)
         # ccpd.date_valid_to = date_valid_from + datetimedelta(months=length)
         # TODO: calculate the number of CCPD to create in order to cover the contract length
@@ -1795,7 +1858,8 @@ class ContractContributionPlanDetails(object):
                     f"__append_contract_cpd_to_list : ccpd_result = {ccpd_result}"
                 )
                 length_ccpd = float(
-                    (ccpd_result.date_valid_to.year - ccpd_result.date_valid_from.year)
+                    (ccpd_result.date_valid_to.year -
+                     ccpd_result.date_valid_from.year)
                     * 12
                     + (
                         ccpd_result.date_valid_to.month
@@ -1836,7 +1900,8 @@ class ContractContributionPlanDetails(object):
                 ccpd_record = model_to_dict(ccpd_result)
                 ccpd_record["calculated_amount"] = calculated_amount
                 uuid_string = f"{ccpd_result.id}"
-                ccpd_record["id"], ccpd_record["uuid"] = (uuid_string, uuid_string)
+                ccpd_record["id"], ccpd_record["uuid"] = (
+                    uuid_string, uuid_string)
                 ccpd_list.append(ccpd_record)
         logger.info("__append_contract_cpd_to_list : --------- End ---------")
         return ccpd_list, total_amount, ccpd_record
@@ -1889,6 +1954,7 @@ class ContractContributionPlanDetails(object):
 # This function is used in payment module
 def get_policy_status(insuree, policy_holder):
     from policyholder.models import PolicyHolderContributionPlan
+
     from contract.models import InsureeWaitingPeriod
 
     logger.info("get_policy_status : --------- Start ---------")
@@ -1941,10 +2007,12 @@ def get_policy_status(insuree, policy_holder):
         logger.info(f"get_policy_status : waiting_period : {waiting_period}")
 
         if waiting_period == 0:
-            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            logger.info(
+                f"get_policy_status : waiting_period : {waiting_period}")
             return Policy.STATUS_READY
         else:
-            logger.info(f"get_policy_status : waiting_period : {waiting_period}")
+            logger.info(
+                f"get_policy_status : waiting_period : {waiting_period}")
             return Policy.STATUS_LOCKED
     except Exception as e:
         logger.error(f"Error getting policy status: {e}")
@@ -1984,7 +2052,8 @@ class PaymentService(object):
             except Exception as e:
                 logger.exception("Payment code generation or saving failed")
             dict_representation = model_to_dict(p)
-            dict_representation["id"], dict_representation["uuid"] = (p.id, p.uuid)
+            dict_representation["id"], dict_representation["uuid"] = (
+                p.id, p.uuid)
             if payment_details:
                 for payment_detail in payment_details:
                     pd = PaymentDetail.objects.create(
@@ -2064,7 +2133,8 @@ def _output_result_success(dict_representation):
 def _save_json_external(user_id, datetime, message):
     return {
         "comments": [
-            {"From": "Portal/webapp", "user": user_id, "date": datetime, "msg": message}
+            {"From": "Portal/webapp", "user": user_id,
+                "date": datetime, "msg": message}
         ]
     }
 
