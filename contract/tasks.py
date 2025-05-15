@@ -23,6 +23,38 @@ def approve_contracts(user_id, contracts):
 
 
 @shared_task
+def approve_contract_async(user_id, contract_id, client_mutation_id=None):
+    """
+    Asynchronous task to approve a single contract
+    """
+    try:
+        user = User.objects.get(id=user_id)
+        contract_service = ContractService(user=user)
+
+        # Approve the contract
+        output = contract_service.approve(contract={"id": contract_id})
+
+        if output["success"]:
+            contract = Contract.objects.get(id=contract_id)
+
+            # Create contract mutation if client_mutation_id is provided
+            if client_mutation_id:
+                ContractMutation.object_mutated(
+                    user,
+                    client_mutation_id=client_mutation_id,
+                    contract=contract
+                )
+
+            return None
+        else:
+            raise Exception(f"Error! {output['detail']}")
+
+    except Exception as e:
+        logger.error(f"Error in approve_contract_async: {str(e)}")
+        raise Exception(f"Error! {str(e)}")
+
+
+@shared_task
 def counter_contracts(user_id, contracts):
     user = User.objects.get(id=user_id)
     contract_service = ContractService(user=user)
@@ -82,7 +114,7 @@ def create_contract_async(user_id, contract_data, client_mutation_id=None):
 
     except Exception as e:
         logger.error(f"Error in create_contract_async: {str(e)}")
-        raise Exception(f"Error! {output['detail']}")
+        raise Exception(f"Error!: {str(e)}")
 
 
 @shared_task
