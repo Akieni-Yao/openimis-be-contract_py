@@ -214,9 +214,16 @@ class Contract(object):
                     )
                     print(
                         "====  Contract : create : contract creation failed, Sanction is not approved!"
+                logger.info(
+                    f"====  Contract : create : policy_holder : {policy_holder.id} : {policy_holder.status}"
+                )
+
+                if policy_holder.status != "Approved":
+                    logger.error(
+                        f"====  Contract : create : policy_holder : {policy_holder.id} is not approved!"
                     )
                     raise Exception(
-                        "contract creation failed, Sanction is not approved!"
+                        "contract creation failed, policy holder is not approved!"
                     )
 
             incoming_code = generate_contract_code(
